@@ -1,0 +1,56 @@
+import { Router, Request, Response } from 'express';
+import { Match } from '../models/Match';
+
+const router = Router();
+
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const player = req.query.player as string;
+    if (!player?.trim()) {
+      res.status(400).json({ error: 'player query parameter is required' });
+      return;
+    }
+
+    const matches = await Match.find({ players: player })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    let wins = 0;
+    let losses = 0;
+    let totalScore = 0;
+
+    const summaries = matches.map((m) => {
+      const playerIndex = m.players.indexOf(player);
+      const finalScore = m.rounds.reduce((sum, r) => sum + (r.scores[playerIndex] ?? 0), 0);
+      const won = m.winner === player;
+      if (won) wins++;
+      else losses++;
+      totalScore += finalScore;
+
+      return {
+        id: m._id,
+        players: m.players,
+        winner: m.winner,
+        createdAt: m.createdAt,
+        playerScore: finalScore,
+        won,
+      };
+    });
+
+    res.json({
+      matches: summaries,
+      stats: {
+        wins,
+        losses,
+        totalGames: matches.length,
+        avgScore: matches.length > 0 ? totalScore / matches.length : 0,
+      },
+    });
+  } catch (err) {
+    console.error('History API error:', err);
+    res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
+export default router;

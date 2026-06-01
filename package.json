@@ -1,0 +1,19 @@
+{
+  "name": "callbreak",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run build -w @callbreak/shared && concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w @callbreak/shared && npm run build -w frontend && npm run build -w backend",
+    "start": "cross-env NODE_ENV=production node backend/dist/index.js",
+    "postinstall": "npm run build -w @callbreak/shared"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3"
+  }
+}
