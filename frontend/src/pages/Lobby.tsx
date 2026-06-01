@@ -13,6 +13,7 @@ interface LobbyProps {
   onReconnect: () => void;
   chatMessages: import('../components/ChatDrawer').ChatMessage[];
   onSendChatMessage: (message: string) => void;
+  onLeaveRoom: () => void;
 }
 
 export function Lobby({
@@ -23,6 +24,7 @@ export function Lobby({
   onReconnect,
   chatMessages,
   onSendChatMessage,
+  onLeaveRoom,
 }: LobbyProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showHistory, setShowHistory] = useState(false);
@@ -31,6 +33,47 @@ export function Lobby({
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [totalRounds, setTotalRounds] = useState(5);
+
+  const [lobbies, setLobbies] = useState<import('../api/lobbies').LobbySummary[]>([]);
+  const [lobbiesLoading, setLobbiesLoading] = useState(false);
+  const [lobbiesError, setLobbiesError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const loadLobbies = async () => {
+    setLobbiesLoading(true);
+    setLobbiesError(null);
+    try {
+      const { fetchLobbies } = await import('../api/lobbies');
+      const data = await fetchLobbies();
+      setLobbies(data);
+    } catch (err) {
+      setLobbiesError(err instanceof Error ? err.message : 'Could not load lobbies');
+    } finally {
+      setLobbiesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!room) {
+      loadLobbies();
+      const interval = setInterval(loadLobbies, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [room]);
+
+  const handleJoinLobby = (code: string) => {
+    if (!username.trim()) return;
+    connectSocket().emit('room:join', {
+      code: code.toUpperCase(),
+      username: username.trim(),
+    });
+  };
+
+  const filteredLobbies = lobbies.filter(
+    (l) =>
+      l.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      l.hostUsername.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const socket = getSocket();
   const isHost = room?.hostId === socket.id;
@@ -64,7 +107,7 @@ export function Lobby({
   };
 
   const handleLeave = () => {
-    connectSocket().emit('room:leave');
+    onLeaveRoom();
   };
 
   const handleStart = () => {
@@ -223,6 +266,102 @@ export function Lobby({
             </div>
           )}
         </div>
+
+        {/* Public Lobbies List / Finder */}
+        {!room && (
+          <div className="bg-felt rounded-xl p-6 border border-felt-light/50 shadow-lg space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold text-gold flex items-center gap-1.5 select-none">
+                <span>🌐</span> Public Lobbies
+              </h2>
+              <button
+                type="button"
+                onClick={loadLobbies}
+                disabled={lobbiesLoading}
+                className="text-xs bg-felt-light/80 hover:bg-felt-light border border-gold/15 px-2.5 py-1 rounded-full text-white cursor-pointer transition-all active:scale-95 bg-transparent outline-none"
+              >
+                {lobbiesLoading ? 'Refreshing...' : '🔄 Refresh'}
+              </button>
+            </div>
+
+            {/* Lobby Finder search input */}
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by code or host..."
+                className="w-full px-4 py-2 rounded-lg bg-felt-dark border border-felt-light text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gold text-sm"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-white text-xs bg-transparent border-0 cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {lobbiesError && (
+              <p className="text-red-400 text-xs bg-red-900/30 px-3 py-2 rounded">{lobbiesError}</p>
+            )}
+
+            {filteredLobbies.length === 0 ? (
+              <div className="text-center py-6 text-gray-400 text-sm">
+                {lobbies.length === 0 ? (
+                  <>
+                    <p>No active lobbies found.</p>
+                    <p className="text-xs opacity-60 mt-1">Be the first to create one!</p>
+                  </>
+                ) : (
+                  <p>No matches for your search.</p>
+                )}
+              </div>
+            ) : (
+              <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-thin scrollbar-thumb-felt-light">
+                {filteredLobbies.map((lobby) => (
+                  <div
+                    key={lobby.code}
+                    className="p-3 bg-felt-dark/60 hover:bg-felt-dark border border-felt-light/20 rounded-lg flex items-center justify-between transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-gold tracking-wider text-sm">
+                          {lobby.code}
+                        </span>
+                        <span className="text-[10px] bg-felt-light px-1.5 py-0.5 rounded text-gray-300">
+                          {lobby.totalRounds} rounds
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Host: <span className="text-gray-300 font-semibold">{lobby.hostUsername}</span>
+                      </p>
+                      <p className="text-[10px] text-gray-500 truncate max-w-[200px]">
+                        Players: {lobby.players.join(', ')}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className="text-xs text-gray-300 font-medium">
+                        👥 {lobby.playerCount}/4
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleJoinLobby(lobby.code)}
+                        disabled={!username.trim()}
+                        className="px-3 py-1 bg-gold hover:bg-yellow-400 text-felt-dark rounded text-xs font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-0 outline-none"
+                        title={!username.trim() ? 'Enter username to join' : 'Join this room'}
+                      >
+                        Join
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-center gap-4 flex-wrap">
           <button

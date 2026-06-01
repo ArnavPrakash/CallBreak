@@ -19,6 +19,8 @@ async function main(): Promise<void> {
       origin: env.isProduction ? true : env.clientOrigin,
       methods: ['GET', 'POST'],
     },
+    pingTimeout: 60000,
+    pingInterval: 25000,
   });
 
   setupSocket(io);

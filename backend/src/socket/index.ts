@@ -22,6 +22,7 @@ type GameServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
 export function setupSocket(io: GameServer): void {
   io.on('connection', (socket) => {
+    console.log(`[Connection] Client connected: ${socket.id}`);
     socket.on('room:create', ({ username }) => {
       if (!username?.trim()) {
         socket.emit('room:error', { message: 'Username is required' });
@@ -141,6 +142,7 @@ export function setupSocket(io: GameServer): void {
       if (!room) return;
       const player = room.players.find((p) => p.socketId === socket.id);
       if (!player) return;
+      console.log(`[Chat] Room ${room.code} | ${player.username}: ${message}`);
       io.to(room.code).emit('room:messageReceived', {
         username: player.username,
         message: message.trim(),
@@ -149,6 +151,7 @@ export function setupSocket(io: GameServer): void {
     });
 
     socket.on('disconnect', () => {
+      console.log(`[Connection] Client disconnected: ${socket.id}`);
       const result = markPlayerDisconnected(socket.id);
       if (result.room) {
         socket.leave(result.room.code);

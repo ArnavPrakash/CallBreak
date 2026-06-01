@@ -18,7 +18,7 @@ export function CardView({ card, onClick, disabled, small, played }: CardViewPro
       type="button"
       onClick={onClick}
       disabled={disabled || !onClick}
-      className={`${size} rounded-lg shadow-md transition-all duration-200 overflow-hidden relative select-none
+      className={`${size} rounded-lg shadow-md transition-all duration-200 overflow-hidden relative select-none bg-white p-[3px]
         ${onClick && !disabled ? 'hover:-translate-y-4 hover:shadow-xl cursor-pointer' : 'cursor-default'}
         ${played ? 'ring-4 ring-yellow-400 scale-105 shadow-lg' : ''}
         disabled:opacity-50 disabled:grayscale-[30%] disabled:hover:translate-y-0`}
@@ -26,7 +26,7 @@ export function CardView({ card, onClick, disabled, small, played }: CardViewPro
       <img
         src={imagePath}
         alt={`${card.rank} of ${card.suit}`}
-        className="w-full h-full object-fill select-none"
+        className="w-full h-full object-fill select-none rounded-md"
         draggable={false}
       />
     </button>

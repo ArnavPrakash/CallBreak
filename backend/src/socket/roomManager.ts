@@ -41,6 +41,7 @@ export function createRoom(socketId: string, username: string): Room {
     game: null,
   };
   rooms.set(code, room);
+  console.log(`[Room] Room ${code} created by ${username}`);
   return room;
 }
 
@@ -58,6 +59,7 @@ export function joinRoom(
   if (disconnected) {
     disconnected.socketId = socketId;
     disconnected.connected = true;
+    console.log(`[Room] Player ${username} reconnected to room ${upperCode}`);
     return { room };
   }
 
@@ -73,6 +75,7 @@ export function joinRoom(
   }
 
   room.players.push(makePlayer(socketId, username));
+  console.log(`[Room] Player ${username} joined room ${upperCode}`);
   return { room };
 }
 
@@ -91,6 +94,7 @@ export function reconnectRoom(
 
   player.socketId = socketId;
   player.connected = true;
+  console.log(`[Room] Player ${username} reconnected to room ${code}`);
   return { room };
 }
 
@@ -115,7 +119,9 @@ export function leaveRoom(socketId: string): { room?: Room; deleted?: boolean } 
     const idx = room.players.findIndex((p) => p.socketId === socketId);
     if (idx === -1) continue;
 
+    const player = room.players[idx];
     room.players.splice(idx, 1);
+    console.log(`[Room] Player ${player.username} left room ${code}`);
 
     if (room.players.length === 0) {
       rooms.delete(code);
@@ -170,4 +176,29 @@ export function setRoomMatchEnd(room: Room): void {
 export function resetRoomToLobby(room: Room): void {
   room.status = 'lobby';
   room.game = null;
+}
+
+export interface PublicLobbySummary {
+  code: string;
+  hostUsername: string;
+  playerCount: number;
+  players: string[];
+  totalRounds: number;
+}
+
+export function getPublicLobbies(): PublicLobbySummary[] {
+  const list: PublicLobbySummary[] = [];
+  for (const room of rooms.values()) {
+    if (room.status === 'lobby' && room.players.length < MAX_PLAYERS) {
+      const hostPlayer = room.players.find((p) => p.socketId === room.hostId);
+      list.push({
+        code: room.code,
+        hostUsername: hostPlayer ? hostPlayer.username : 'Unknown',
+        playerCount: room.players.length,
+        players: room.players.map((p) => p.username),
+        totalRounds: room.totalRounds,
+      });
+    }
+  }
+  return list;
 }

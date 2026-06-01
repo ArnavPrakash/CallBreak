@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import historyRouter from './routes/history';
+import lobbiesRouter from './routes/lobbies';
 import { env } from './config/env';
 
 export function createApp(): express.Application {
@@ -22,6 +23,7 @@ export function createApp(): express.Application {
   });
 
   app.use('/api/history', historyRouter);
+  app.use('/api/lobbies', lobbiesRouter);
 
   if (env.isProduction) {
     const frontendDist = path.resolve(__dirname, '../../frontend/dist');

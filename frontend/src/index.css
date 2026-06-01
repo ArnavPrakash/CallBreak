@@ -97,3 +97,12 @@ body {
 .animate-clear-right {
   animation: clearToRight 0.5s cubic-bezier(0.55, 0.055, 0.675, 0.19) both;
 }
+
+@keyframes slideUp {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

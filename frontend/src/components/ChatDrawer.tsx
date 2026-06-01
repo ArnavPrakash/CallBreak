@@ -25,19 +25,19 @@ export function ChatDrawer({ messages, currentUsername, onSendMessage }: ChatDra
     }
   }, [messages, isOpen]);
 
-  // Track unread messages when closed
-  useEffect(() => {
-    if (!isOpen && messages.length > 0) {
-      setUnreadCount((prev) => prev + 1);
-    }
-  }, [messages, isOpen]);
+  const lastMessagesLength = useRef(messages.length);
 
-  // Reset unread count when opened
+  // Track unread messages when closed and reset when open
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      if (messages.length > lastMessagesLength.current) {
+        setUnreadCount((prev) => prev + (messages.length - lastMessagesLength.current));
+      }
+    } else {
       setUnreadCount(0);
     }
-  }, [isOpen]);
+    lastMessagesLength.current = messages.length;
+  }, [messages, isOpen]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();

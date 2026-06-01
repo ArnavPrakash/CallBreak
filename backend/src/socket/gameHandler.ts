@@ -105,6 +105,7 @@ export function handleGameStart(
   const game = createGameEngine(playerNames, room.totalRounds);
   room.game = game;
   room.status = 'bidding';
+  console.log(`[Game] Game started in room ${room.code} for ${room.totalRounds} rounds`);
 
   for (const player of room.players) {
     const seatIndex = getSeatIndex(room, player.socketId);
@@ -137,6 +138,9 @@ export function handleBid(io: Server, socket: GameSocket, bid: number): void {
     return;
   }
 
+  const players = room.game.players;
+  console.log(`[Game] Room ${room.code} | Player ${players[seatIndex]} bid ${bid < 0 ? 'Blind ' + Math.abs(bid) : bid}`);
+
   emitGameState(io, room);
 
   io.to(room.code).emit('game:bidPlaced', { seatIndex, bid });
@@ -163,6 +167,9 @@ export async function handlePlay(io: Server, socket: GameSocket, card: Card): Pr
     return;
   }
 
+  const players = room.game.players;
+  console.log(`[Game] Room ${room.code} | Player ${players[seatIndex]} played ${card.rank} of ${card.suit}`);
+
   io.to(room.code).emit('game:cardPlayed', { seatIndex, card });
 
   if (result.trickComplete) {
@@ -176,6 +183,7 @@ export async function handlePlay(io: Server, socket: GameSocket, card: Card): Pr
 
       const resolveResult = resolveTrick(room.game);
       if (resolveResult.ok && resolveResult.winnerSeat !== undefined && resolveResult.completedTrick) {
+        console.log(`[Game] Room ${room.code} | Trick won by ${room.game.players[resolveResult.winnerSeat]}`);
         io.to(room.code).emit('game:trickWon', {
           winnerSeat: resolveResult.winnerSeat,
           trick: resolveResult.completedTrick,
@@ -206,6 +214,7 @@ export async function handlePlay(io: Server, socket: GameSocket, card: Card): Pr
 async function handleRoundEnd(io: Server, room: Room): Promise<void> {
   const game = room.game!;
   const lastRound = game.completedRounds[game.completedRounds.length - 1];
+  console.log(`[Game] Room ${room.code} | Round ${lastRound.roundNumber} ended. Bids: [${lastRound.bids.join(', ')}], Scores: [${lastRound.scores.join(', ')}]`);
 
   io.to(room.code).emit('game:roundScores', {
     roundNumber: lastRound.roundNumber,
@@ -239,6 +248,7 @@ async function handleRoundEnd(io: Server, room: Room): Promise<void> {
 async function handleMatchEnd(io: Server, room: Room): Promise<void> {
   const game = room.game!;
   const winner = getMatchWinner(game);
+  console.log(`[Game] Room ${room.code} | Match ended. Winner: ${winner}`);
 
   const lastRound = game.completedRounds[game.completedRounds.length - 1];
   io.to(room.code).emit('game:roundScores', {
