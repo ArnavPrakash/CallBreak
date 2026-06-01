@@ -24,7 +24,7 @@ const offsetClasses = {
   right: 'right-20 top-1/2 -translate-y-1/2',
 };
 
-export function TrickCenter({ trick }: TrickCenterProps) {
+export function TrickCenter({ trick, mySeatIndex }: TrickCenterProps) {
   if (trick.length === 0) {
     return (
       <div className="absolute inset-0 flex items-center justify-center">

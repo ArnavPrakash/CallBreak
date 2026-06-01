@@ -3,6 +3,7 @@ import type { Card, ClientToServerEvents, ServerToClientEvents } from '@callbrea
 import {
   createGameEngine,
   getMatchWinner,
+  normalizeTotalRounds,
   playCard,
   startNextRound,
   submitBid,
@@ -14,6 +15,7 @@ import {
   getRoomBySocket,
   getSeatIndex,
   resetRoomToLobby,
+  setRoomMatchEnd,
   type Room,
 } from './roomManager';
 
@@ -22,10 +24,43 @@ type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 export function broadcastRoomUpdate(io: Server, room: Room): void {
   io.to(room.code).emit('room:updated', {
     code: room.code,
-    players: room.players.map((p) => ({ socketId: p.socketId, username: p.username })),
+    players: room.players.map((p) => ({
+      socketId: p.socketId,
+      username: p.username,
+      connected: p.connected,
+    })),
     hostId: room.hostId,
     status: room.status,
+    totalRounds: room.totalRounds,
   });
+}
+
+export function resyncPlayer(io: Server, socket: GameSocket, room: Room): void {
+  if (!room.game) return;
+
+  const game = room.game;
+  const seatIndex = getSeatIndex(room, socket.id);
+  if (seatIndex < 0) return;
+
+  const payload = {
+    seatIndex,
+    hand: game.hands[seatIndex],
+    dealerIndex: game.dealerIndex,
+    firstBidder: game.biddingIndex,
+    players: game.players,
+    roundNumber: game.roundNumber,
+    totalRounds: game.totalRounds,
+  };
+
+  socket.emit('game:resync', payload);
+  socket.emit('game:hand', { hand: game.hands[seatIndex] });
+  socket.emit('game:state', toPublicState(game));
+
+  if (game.phase === 'bidding' && game.bids[seatIndex] === null && game.biddingIndex === seatIndex) {
+    socket.emit('game:bidRequest', { seatIndex });
+  } else if (game.phase === 'playing' && game.currentTurn === seatIndex) {
+    socket.emit('game:playRequest', { seatIndex });
+  }
 }
 
 function emitGameState(io: Server, room: Room): void {
@@ -36,21 +71,37 @@ function emitGameState(io: Server, room: Room): void {
 function sendPrivateHands(io: Server, room: Room): void {
   if (!room.game) return;
   for (const player of room.players) {
+    if (!player.connected) continue;
     const seatIndex = getSeatIndex(room, player.socketId);
+    if (seatIndex < 0) continue;
     io.to(player.socketId).emit('game:hand', {
       hand: room.game.hands[seatIndex],
     });
   }
 }
 
-export function handleGameStart(io: Server, socket: GameSocket, room: Room): void {
+export function handleGameStart(
+  io: Server,
+  socket: GameSocket,
+  room: Room,
+  totalRounds?: number
+): void {
   if (socket.id !== room.hostId) {
     socket.emit('game:error', { message: 'Only the host can start the game' });
     return;
   }
 
+  if (room.players.length !== 4) {
+    socket.emit('game:error', { message: 'Need exactly 4 players to start' });
+    return;
+  }
+
+  if (totalRounds !== undefined) {
+    room.totalRounds = normalizeTotalRounds(totalRounds);
+  }
+
   const playerNames = room.players.map((p) => p.username);
-  const game = createGameEngine(playerNames);
+  const game = createGameEngine(playerNames, room.totalRounds);
   room.game = game;
   room.status = 'bidding';
 
@@ -63,6 +114,7 @@ export function handleGameStart(io: Server, socket: GameSocket, room: Room): voi
       firstBidder: game.biddingIndex,
       players: playerNames,
       roundNumber: game.roundNumber,
+      totalRounds: game.totalRounds,
     });
   }
 
@@ -156,6 +208,7 @@ async function handleRoundEnd(io: Server, room: Room): Promise<void> {
       firstBidder: game.biddingIndex,
       players: game.players,
       roundNumber: game.roundNumber,
+      totalRounds: game.totalRounds,
     });
   }
 
@@ -188,6 +241,11 @@ async function handleMatchEnd(io: Server, room: Room): Promise<void> {
     players: game.players,
   });
 
+  setRoomMatchEnd(room);
+  broadcastRoomUpdate(io, room);
+}
+
+export function handleReturnToLobby(io: Server, room: Room): void {
   resetRoomToLobby(room);
   broadcastRoomUpdate(io, room);
 }

@@ -18,9 +18,12 @@ export interface HistoryResponse {
 }
 
 export async function fetchHistory(player: string): Promise<HistoryResponse> {
-  const res = await fetch(`/api/history?player=${encodeURIComponent(player)}`);
+  const { apiFetch } = await import('./client');
+  const res = await apiFetch(`/api/history?player=${encodeURIComponent(player)}`);
   if (!res.ok) {
-    throw new Error('Failed to fetch history');
+    const body = await res.json().catch(() => ({}));
+    const msg = (body as { error?: string }).error ?? `Failed to fetch history (${res.status})`;
+    throw new Error(msg);
   }
   return res.json();
 }

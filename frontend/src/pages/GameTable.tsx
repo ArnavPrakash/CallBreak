@@ -1,19 +1,30 @@
-import { useMemo } from 'react';
-import type { Card, GameStartedPayload, PublicGameState } from '@callbreak/shared';
+import { useMemo, useState } from 'react';
+import type {
+  Card,
+  GameStartedPayload,
+  MatchOverPayload,
+  PublicGameState,
+  RoomUpdatePayload,
+} from '@callbreak/shared';
+import { getLegalPlays } from '@callbreak/shared';
 import { BidPanel } from '../components/BidPanel';
 import { CardView } from '../components/CardView';
+import { MatchResults } from '../components/MatchResults';
 import { PlayerSeat } from '../components/PlayerSeat';
+import { RoundScoreboard } from '../components/RoundScoreboard';
 import { TrickCenter } from '../components/TrickCenter';
 import { connectSocket } from '../socket/client';
 import { cardKey } from '../utils/cards';
-import { getLegalPlays } from '../utils/legalPlays';
+import { loadSession } from '../utils/session';
 
 interface GameTableProps {
   gameStarted: GameStartedPayload;
   gameState: PublicGameState | null;
   hand: Card[];
+  room: RoomUpdatePayload | null;
   onLeave: () => void;
-  matchOver: { winner: string; totals: number[] } | null;
+  matchOver: MatchOverPayload | null;
+  error: string | null;
 }
 
 function seatToPosition(seatIndex: number, mySeatIndex: number): 'bottom' | 'left' | 'top' | 'right' {
@@ -27,11 +38,28 @@ function seatToPosition(seatIndex: number, mySeatIndex: number): 'bottom' | 'lef
   return map[relative];
 }
 
-export function GameTable({ gameStarted, gameState, hand, onLeave, matchOver }: GameTableProps) {
+export function GameTable({
+  gameStarted,
+  gameState,
+  hand,
+  room,
+  onLeave,
+  matchOver,
+  error,
+}: GameTableProps) {
+  const [showScoreboard, setShowScoreboard] = useState(false);
   const mySeat = gameStarted.seatIndex;
   const socket = connectSocket();
+  const totalRounds = gameState?.totalRounds ?? gameStarted.totalRounds ?? 5;
 
   const players = gameState?.players ?? gameStarted.players;
+
+  const connectedByName = useMemo(() => {
+    const map = new Map<string, boolean>();
+    room?.players.forEach((p) => map.set(p.username, p.connected));
+    return map;
+  }, [room?.players]);
+
   const phase = gameState?.phase ?? 'bidding';
   const currentTurn = gameState?.currentTurn ?? gameStarted.firstBidder;
   const bids = gameState?.bids ?? [null, null, null, null];
@@ -39,9 +67,7 @@ export function GameTable({ gameStarted, gameState, hand, onLeave, matchOver }: 
   const currentTrick = gameState?.currentTrick ?? [];
 
   const biddingSeat =
-    gameState?.phase === 'bidding'
-      ? gameState.currentTurn
-      : gameStarted.firstBidder;
+    gameState?.phase === 'bidding' ? gameState.currentTurn : gameStarted.firstBidder;
 
   const showBidPanel = phase === 'bidding' && biddingSeat === mySeat && bids[mySeat] === null;
 
@@ -50,7 +76,7 @@ export function GameTable({ gameStarted, gameState, hand, onLeave, matchOver }: 
   const legalCards = useMemo(() => {
     if (!isMyPlayTurn) return new Set<string>();
     const ledSuit = currentTrick.length > 0 ? currentTrick[0].card.suit : null;
-    const legal = getLegalPlays(hand, ledSuit);
+    const legal = getLegalPlays(hand, ledSuit, currentTrick);
     return new Set(legal.map(cardKey));
   }, [hand, currentTrick, isMyPlayTurn]);
 
@@ -65,9 +91,10 @@ export function GameTable({ gameStarted, gameState, hand, onLeave, matchOver }: 
   return (
     <div className="min-h-screen relative overflow-hidden">
       <div className="absolute inset-4 rounded-3xl bg-felt border-4 border-felt-light/30 shadow-inner">
-        {/* HUD */}
         <div className="absolute top-2 left-0 right-0 flex justify-center gap-4 text-sm z-10 px-4 flex-wrap">
-          <span className="bg-felt-dark/80 px-3 py-1 rounded">Round {gameState?.roundNumber ?? gameStarted.roundNumber}/5</span>
+          <span className="bg-felt-dark/80 px-3 py-1 rounded">
+            Round {gameState?.roundNumber ?? gameStarted.roundNumber}/{totalRounds}
+          </span>
           {gameState && (
             <span className="bg-felt-dark/80 px-3 py-1 rounded">
               Scores: {gameState.totalScores.map((s) => s.toFixed(1)).join(' | ')}
@@ -75,13 +102,13 @@ export function GameTable({ gameStarted, gameState, hand, onLeave, matchOver }: 
           )}
         </div>
 
-        {/* Player seats */}
         {players.map((name, seatIndex) => (
           <PlayerSeat
             key={name}
             username={name}
             bid={bids[seatIndex]}
             tricks={tricksWon[seatIndex]}
+            connected={connectedByName.get(name) ?? true}
             isTurn={
               (phase === 'bidding' &&
                 gameState?.currentTurn === seatIndex &&
@@ -95,8 +122,7 @@ export function GameTable({ gameStarted, gameState, hand, onLeave, matchOver }: 
 
         <TrickCenter trick={currentTrick} mySeatIndex={mySeat} />
 
-        {/* Hand */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center gap-1 flex-wrap max-h-32 overflow-x-auto">
+        <div className="absolute bottom-0 left-0 right-0 pt-2 pb-4 px-2 flex justify-center gap-1 flex-wrap max-h-28 overflow-x-auto z-20">
           {hand.map((card) => {
             const key = cardKey(card);
             const canPlay = isMyPlayTurn && legalCards.has(key);
@@ -112,46 +138,65 @@ export function GameTable({ gameStarted, gameState, hand, onLeave, matchOver }: 
         </div>
       </div>
 
+      {error && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-red-900/90 text-red-100 px-4 py-2 rounded-lg text-sm z-50 max-w-sm text-center">
+          {error}
+        </div>
+      )}
+
       {showBidPanel && <BidPanel onBid={handleBid} />}
 
-      {isMyPlayTurn && !showBidPanel && (
-        <div className="fixed bottom-36 left-1/2 -translate-x-1/2 bg-gold text-felt-dark px-4 py-2 rounded-full text-sm font-medium animate-pulse z-40">
+      {isMyPlayTurn && !showBidPanel && !matchOver && (
+        <div className="fixed bottom-40 left-1/2 -translate-x-1/2 bg-gold text-felt-dark px-4 py-2 rounded-full text-sm font-medium animate-pulse z-40">
           Your turn — play a card
         </div>
       )}
 
-      {matchOver && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-felt rounded-xl p-8 max-w-md w-full text-center border border-gold">
-            <h2 className="text-2xl font-bold text-gold mb-2">Match Over</h2>
-            <p className="text-xl mb-4">
-              Winner: <span className="text-gold">{matchOver.winner}</span>
-            </p>
-            <ul className="text-sm space-y-1 mb-6">
-              {players.map((name, i) => (
-                <li key={name}>
-                  {name}: {matchOver.totals[i].toFixed(1)} pts
-                </li>
-              ))}
-            </ul>
+      {matchOver && <MatchResults result={matchOver} onClose={onLeave} />}
+
+      {!matchOver && (
+        <div className="fixed top-4 right-4 flex gap-3 z-20 items-center">
+          <button
+            type="button"
+            onClick={() => setShowScoreboard(true)}
+            className="text-sm bg-felt-light/90 hover:bg-felt-light px-3 py-1.5 rounded-lg text-white"
+          >
+            Scoreboard
+          </button>
+          {room &&
+            room.players.some(
+              (p) => p.username === players[mySeat] && !p.connected
+            ) && (
             <button
               type="button"
-              onClick={onLeave}
-              className="px-6 py-2 rounded-lg bg-gold text-felt-dark font-semibold"
+              onClick={() => {
+                const session = loadSession();
+                if (session) {
+                  socket.emit('room:reconnect', session);
+                }
+              }}
+              className="text-sm bg-green-700 hover:bg-green-600 px-3 py-1.5 rounded-lg text-white"
             >
-              Back to Lobby
+              Reconnect
             </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={onLeave}
+            className="text-sm text-gray-400 hover:text-white py-1.5"
+          >
+            Leave
+          </button>
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={onLeave}
-        className="fixed top-4 right-4 text-sm text-gray-400 hover:text-white z-20"
-      >
-        Leave
-      </button>
+      {showScoreboard && !matchOver && (
+        <RoundScoreboard
+          players={players}
+          gameState={gameState}
+          onClose={() => setShowScoreboard(false)}
+        />
+      )}
     </div>
   );
 }

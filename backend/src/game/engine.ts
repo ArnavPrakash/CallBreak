@@ -3,12 +3,15 @@ import { cardEquals, createDeck, dealCards, removeCard, shuffleDeck } from './de
 import { calculateRoundScore, findWinner } from './scoring';
 import { determineTrickWinner, getLegalPlays, isValidPlay } from './tricks';
 
-const TOTAL_ROUNDS = 5;
 const TRICKS_PER_ROUND = 13;
+const DEFAULT_TOTAL_ROUNDS = 5;
+const MIN_ROUNDS = 1;
+const MAX_ROUNDS = 20;
 
 export interface GameEngineState {
   phase: 'bidding' | 'playing' | 'roundEnd' | 'matchEnd';
   roundNumber: number;
+  totalRounds: number;
   dealerIndex: number;
   hands: Card[][];
   bids: (number | null)[];
@@ -23,13 +26,23 @@ export interface GameEngineState {
   players: string[];
 }
 
-export function createGameEngine(players: string[], dealerIndex = 0): GameEngineState {
+export function normalizeTotalRounds(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_TOTAL_ROUNDS;
+  return Math.min(MAX_ROUNDS, Math.max(MIN_ROUNDS, Math.round(n)));
+}
+
+export function createGameEngine(
+  players: string[],
+  totalRounds = DEFAULT_TOTAL_ROUNDS,
+  dealerIndex = 0
+): GameEngineState {
   const deck = shuffleDeck(createDeck());
   const hands = dealCards(deck);
 
   return {
     phase: 'bidding',
     roundNumber: 1,
+    totalRounds: normalizeTotalRounds(totalRounds),
     dealerIndex,
     hands,
     bids: [null, null, null, null],
@@ -75,7 +88,7 @@ export function playCard(state: GameEngineState, seatIndex: number, card: Card):
   const hand = state.hands[seatIndex];
   const ledSuit: Suit | null = state.currentTrick.length > 0 ? state.currentTrick[0].card.suit : null;
 
-  if (!isValidPlay(hand, card, ledSuit)) return { ok: false };
+  if (!isValidPlay(hand, card, ledSuit, state.currentTrick)) return { ok: false };
 
   state.hands[seatIndex] = removeCard(hand, card);
   state.currentTrick.push({ seatIndex, card });
@@ -115,7 +128,7 @@ function endRound(state: GameEngineState): void {
     scores: scores as [number, number, number, number],
   });
 
-  if (state.roundNumber >= TOTAL_ROUNDS) {
+  if (state.roundNumber >= state.totalRounds) {
     state.phase = 'matchEnd';
     return;
   }
@@ -151,6 +164,7 @@ export function toPublicState(state: GameEngineState): PublicGameState {
   return {
     phase: state.phase,
     roundNumber: state.roundNumber,
+    totalRounds: state.totalRounds,
     dealerIndex: state.dealerIndex,
     currentTurn,
     bids: [...state.bids],
@@ -159,6 +173,7 @@ export function toPublicState(state: GameEngineState): PublicGameState {
     trickLeader: state.trickLeader,
     roundScores: state.roundScores.map((r) => [...r]),
     totalScores: [...state.totalScores],
+    completedRounds: [...state.completedRounds],
     players: [...state.players],
   };
 }
@@ -166,7 +181,7 @@ export function toPublicState(state: GameEngineState): PublicGameState {
 export function getLegalCardsForPlayer(state: GameEngineState, seatIndex: number): Card[] {
   const hand = state.hands[seatIndex];
   const ledSuit: Suit | null = state.currentTrick.length > 0 ? state.currentTrick[0].card.suit : null;
-  return getLegalPlays(hand, ledSuit);
+  return getLegalPlays(hand, ledSuit, state.currentTrick);
 }
 
 export { cardEquals };

@@ -1,24 +1,43 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { RoomUpdatePayload } from '@callbreak/shared';
 import { fetchHistory, type HistoryResponse } from '../api/history';
 import { connectSocket, getSocket } from '../socket/client';
+import { loadSession } from '../utils/session';
 
 interface LobbyProps {
   username: string;
   onUsernameChange: (name: string) => void;
   room: RoomUpdatePayload | null;
   error: string | null;
+  onReconnect: () => void;
 }
 
-export function Lobby({ username, onUsernameChange, room, error }: LobbyProps) {
+export function Lobby({ username, onUsernameChange, room, error, onReconnect }: LobbyProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  const [totalRounds, setTotalRounds] = useState(5);
 
   const socket = getSocket();
   const isHost = room?.hostId === socket.id;
   const canStart = room && room.players.length === 4 && isHost;
+  const displayRounds = room?.totalRounds ?? totalRounds;
+
+  useEffect(() => {
+    if (room?.totalRounds !== undefined) {
+      setTotalRounds(room.totalRounds);
+    }
+  }, [room?.totalRounds]);
+
+  const handleRoundsChange = (n: number) => {
+    setTotalRounds(n);
+    if (isHost && room) {
+      connectSocket().emit('room:setRounds', { totalRounds: n });
+    }
+  };
 
   const handleCreate = () => {
     if (!username.trim()) return;
@@ -38,22 +57,30 @@ export function Lobby({ username, onUsernameChange, room, error }: LobbyProps) {
   };
 
   const handleStart = () => {
-    connectSocket().emit('game:start');
+    connectSocket().emit('game:start', { totalRounds: displayRounds });
   };
 
   const loadHistory = async () => {
     if (!username.trim()) return;
     setHistoryLoading(true);
+    setHistoryError(null);
     try {
       const data = await fetchHistory(username.trim());
       setHistory(data);
       setShowHistory(true);
-    } catch {
+    } catch (err) {
       setHistory(null);
+      setHistoryError(err instanceof Error ? err.message : 'Could not load history');
+      setShowHistory(true);
     } finally {
       setHistoryLoading(false);
     }
   };
+
+  const storedSession = loadSession();
+  const canRejoin =
+    username.trim() &&
+    (storedSession?.username === username.trim() || (room && room.status !== 'lobby'));
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -127,7 +154,10 @@ export function Lobby({ username, onUsernameChange, room, error }: LobbyProps) {
                       key={p.socketId}
                       className="px-3 py-2 rounded-lg bg-felt-dark flex justify-between items-center"
                     >
-                      <span>{p.username}</span>
+                      <span className={p.connected ? '' : 'text-gray-400'}>
+                        {p.username}
+                        {!p.connected && ' (away)'}
+                      </span>
                       {p.socketId === room.hostId && (
                         <span className="text-xs text-gold">Host</span>
                       )}
@@ -136,13 +166,35 @@ export function Lobby({ username, onUsernameChange, room, error }: LobbyProps) {
                 </ul>
               </div>
 
+              <div className="space-y-2">
+                <label className="block text-sm text-gray-300">
+                  Rounds per match
+                  {isHost ? '' : ` (host set: ${displayRounds})`}
+                </label>
+                {isHost ? (
+                  <select
+                    value={displayRounds}
+                    onChange={(e) => handleRoundsChange(Number(e.target.value))}
+                    className="w-full px-4 py-2 rounded-lg bg-felt-dark border border-felt-light text-white focus:outline-none focus:ring-2 focus:ring-gold"
+                  >
+                    {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>
+                        {n} round{n > 1 ? 's' : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-gold font-medium">{displayRounds} rounds</p>
+                )}
+              </div>
+
               {canStart && (
                 <button
                   type="button"
                   onClick={handleStart}
                   className="w-full py-3 rounded-lg bg-gold text-felt-dark font-semibold hover:bg-yellow-400 transition-colors"
                 >
-                  Start Game
+                  Start Game ({displayRounds} rounds)
                 </button>
               )}
 
@@ -161,7 +213,7 @@ export function Lobby({ username, onUsernameChange, room, error }: LobbyProps) {
           )}
         </div>
 
-        <div className="flex justify-center gap-4">
+        <div className="flex justify-center gap-4 flex-wrap">
           <button
             type="button"
             onClick={loadHistory}
@@ -170,37 +222,56 @@ export function Lobby({ username, onUsernameChange, room, error }: LobbyProps) {
           >
             {historyLoading ? 'Loading...' : 'View match history'}
           </button>
+          {canRejoin && !room && (
+            <button
+              type="button"
+              onClick={onReconnect}
+              className="text-sm text-green-400 hover:underline"
+            >
+              Rejoin last game
+            </button>
+          )}
         </div>
 
-        {showHistory && history && (
+        {showHistory && (
           <div className="bg-felt rounded-xl p-6 border border-felt-light/50">
             <h2 className="text-lg font-semibold text-gold mb-3">Your stats</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-              <span>Wins: {history.stats.wins}</span>
-              <span>Losses: {history.stats.losses}</span>
-              <span>Games: {history.stats.totalGames}</span>
-              <span>Avg score: {history.stats.avgScore.toFixed(1)}</span>
-            </div>
-            {history.matches.length === 0 ? (
-              <p className="text-gray-400 text-sm">No matches yet.</p>
-            ) : (
-              <ul className="space-y-2 max-h-48 overflow-y-auto">
-                {history.matches.map((m) => (
-                  <li key={m.id} className="text-sm px-3 py-2 bg-felt-dark rounded">
-                    <span className={m.won ? 'text-green-400' : 'text-red-400'}>
-                      {m.won ? 'W' : 'L'}
-                    </span>
-                    {' vs '}
-                    {m.players.filter((p) => p !== username).join(', ')}
-                    {' — '}
-                    {m.playerScore.toFixed(1)} pts
-                  </li>
-                ))}
-              </ul>
+            {historyError && (
+              <p className="text-red-400 text-sm mb-3 bg-red-900/30 px-3 py-2 rounded">{historyError}</p>
+            )}
+            {history && (
+              <>
+                <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+                  <span>Wins: {history.stats.wins}</span>
+                  <span>Losses: {history.stats.losses}</span>
+                  <span>Games: {history.stats.totalGames}</span>
+                  <span>Avg score: {history.stats.avgScore.toFixed(1)}</span>
+                </div>
+                {history.matches.length === 0 ? (
+                  <p className="text-gray-400 text-sm">No matches yet. Finish a game to see history here.</p>
+                ) : (
+                  <ul className="space-y-2 max-h-48 overflow-y-auto">
+                    {history.matches.map((m) => (
+                      <li key={m.id} className="text-sm px-3 py-2 bg-felt-dark rounded">
+                        <span className={m.won ? 'text-green-400' : 'text-red-400'}>
+                          {m.won ? 'W' : 'L'}
+                        </span>
+                        {' vs '}
+                        {m.players.filter((p) => p !== username).join(', ')}
+                        {' — '}
+                        {m.playerScore.toFixed(1)} pts
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
             <button
               type="button"
-              onClick={() => setShowHistory(false)}
+              onClick={() => {
+                setShowHistory(false);
+                setHistoryError(null);
+              }}
               className="mt-3 text-sm text-gray-400 hover:text-white"
             >
               Close

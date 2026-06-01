@@ -1,3 +1,5 @@
+import './setup-dns';
+
 import http from 'http';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@callbreak/shared';

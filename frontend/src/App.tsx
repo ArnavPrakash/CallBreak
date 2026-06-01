@@ -8,6 +8,7 @@ import type {
 import { connectSocket, getSocket } from './socket/client';
 import { GameTable } from './pages/GameTable';
 import { Lobby } from './pages/Lobby';
+import { clearSession, loadSession, saveSession } from './utils/session';
 
 type View = 'lobby' | 'game';
 
@@ -28,14 +29,34 @@ function App() {
   useEffect(() => {
     const socket = connectSocket();
 
+    const tryReconnect = () => {
+      const session = loadSession();
+      if (session && session.username === username.trim()) {
+        socket.emit('room:reconnect', {
+          code: session.code,
+          username: session.username,
+        });
+      }
+    };
+
+    socket.on('connect', tryReconnect);
+    socket.io.on('reconnect', tryReconnect);
+
     socket.on('room:updated', (data) => {
       setRoom(data);
       setError(null);
+      saveSession(data.code, username.trim());
+
       if (data.status === 'lobby') {
         setView('lobby');
         setGameStarted(null);
         setGameState(null);
         setMatchOver(null);
+      } else {
+        setView('game');
+        if (data.status !== 'matchEnd') {
+          setMatchOver(null);
+        }
       }
     });
 
@@ -43,12 +64,15 @@ function App() {
       setError(message);
     });
 
-    socket.on('game:started', (data) => {
+    const applyGameStarted = (data: GameStartedPayload) => {
       setGameStarted(data);
       setHand(data.hand);
       setView('game');
       setMatchOver(null);
-    });
+    };
+
+    socket.on('game:started', applyGameStarted);
+    socket.on('game:resync', applyGameStarted);
 
     socket.on('game:hand', ({ hand: newHand }) => {
       setHand(newHand);
@@ -60,25 +84,39 @@ function App() {
 
     socket.on('game:matchOver', (data) => {
       setMatchOver(data);
+      setView('game');
     });
 
     socket.on('game:error', ({ message }) => {
       setError(message);
     });
 
+    if (socket.connected) {
+      tryReconnect();
+    }
+
     return () => {
+      socket.off('connect', tryReconnect);
+      socket.io.off('reconnect', tryReconnect);
       socket.off('room:updated');
       socket.off('room:error');
-      socket.off('game:started');
+      socket.off('game:started', applyGameStarted);
+      socket.off('game:resync', applyGameStarted);
       socket.off('game:hand');
       socket.off('game:state');
       socket.off('game:matchOver');
       socket.off('game:error');
     };
-  }, []);
+  }, [username]);
 
   const handleLeaveGame = () => {
-    getSocket().emit('room:leave');
+    const socket = getSocket();
+    if (matchOver || room?.status === 'matchEnd') {
+      socket.emit('room:returnToLobby');
+    } else {
+      socket.emit('room:leave');
+    }
+    clearSession();
     setView('lobby');
     setGameStarted(null);
     setGameState(null);
@@ -92,8 +130,10 @@ function App() {
         gameStarted={gameStarted}
         gameState={gameState}
         hand={hand}
+        room={room}
         onLeave={handleLeaveGame}
-        matchOver={matchOver ? { winner: matchOver.winner, totals: matchOver.totals } : null}
+        matchOver={matchOver}
+        error={error}
       />
     );
   }
@@ -104,6 +144,17 @@ function App() {
       onUsernameChange={setUsername}
       room={room}
       error={error}
+      onReconnect={() => {
+        const session = loadSession();
+        if (session) {
+          connectSocket().emit('room:reconnect', session);
+        } else if (room) {
+          connectSocket().emit('room:reconnect', {
+            code: room.code,
+            username: username.trim(),
+          });
+        }
+      }}
     />
   );
 }

@@ -5,12 +5,17 @@ import {
   handleBid,
   handleGameStart,
   handlePlay,
+  handleReturnToLobby,
+  resyncPlayer,
 } from './gameHandler';
 import {
   createRoom,
   getRoomBySocket,
   joinRoom,
   leaveRoom,
+  markPlayerDisconnected,
+  reconnectRoom,
+  setRoomRounds,
 } from './roomManager';
 
 type GameServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -54,6 +59,39 @@ export function setupSocket(io: GameServer): void {
 
       socket.join(result.room.code);
       broadcastRoomUpdate(io, result.room);
+      if (result.room.game) {
+        resyncPlayer(io, socket, result.room);
+      }
+    });
+
+    socket.on('room:reconnect', ({ code, username }) => {
+      if (!username?.trim() || !code?.trim()) {
+        socket.emit('room:error', { message: 'Username and room code are required' });
+        return;
+      }
+
+      if (getRoomBySocket(socket.id)) {
+        socket.emit('room:error', { message: 'Already connected to a room' });
+        return;
+      }
+
+      const result = reconnectRoom(code.trim(), socket.id, username.trim());
+      if (result.error || !result.room) {
+        socket.emit('room:error', { message: result.error || 'Failed to reconnect' });
+        return;
+      }
+
+      socket.join(result.room.code);
+      broadcastRoomUpdate(io, result.room);
+      if (result.room.game) {
+        resyncPlayer(io, socket, result.room);
+      }
+    });
+
+    socket.on('room:returnToLobby', () => {
+      const room = getRoomBySocket(socket.id);
+      if (!room) return;
+      handleReturnToLobby(io, room);
     });
 
     socket.on('room:leave', () => {
@@ -67,13 +105,27 @@ export function setupSocket(io: GameServer): void {
       }
     });
 
-    socket.on('game:start', () => {
+    socket.on('room:setRounds', ({ totalRounds }) => {
+      const room = getRoomBySocket(socket.id);
+      if (!room) {
+        socket.emit('room:error', { message: 'Not in a room' });
+        return;
+      }
+      const err = setRoomRounds(room, socket.id, totalRounds);
+      if (err) {
+        socket.emit('room:error', { message: err });
+        return;
+      }
+      broadcastRoomUpdate(io, room);
+    });
+
+    socket.on('game:start', ({ totalRounds }) => {
       const room = getRoomBySocket(socket.id);
       if (!room) {
         socket.emit('game:error', { message: 'Not in a room' });
         return;
       }
-      handleGameStart(io, socket, room);
+      handleGameStart(io, socket, room, totalRounds);
     });
 
     socket.on('game:bid', ({ bid }) => {
@@ -85,12 +137,9 @@ export function setupSocket(io: GameServer): void {
     });
 
     socket.on('disconnect', () => {
-      const room = getRoomBySocket(socket.id);
-      if (!room) return;
-
-      socket.leave(room.code);
-      const result = leaveRoom(socket.id);
+      const result = markPlayerDisconnected(socket.id);
       if (result.room) {
+        socket.leave(result.room.code);
         broadcastRoomUpdate(io, result.room);
       }
     });

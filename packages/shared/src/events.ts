@@ -4,8 +4,11 @@ import type { Card, GameStartedPayload, MatchOverPayload, PublicGameState, RoomU
 export interface ClientToServerEvents {
   'room:create': (data: { username: string }) => void;
   'room:join': (data: { code: string; username: string }) => void;
+  'room:reconnect': (data: { code: string; username: string }) => void;
+  'room:returnToLobby': () => void;
   'room:leave': () => void;
-  'game:start': () => void;
+  'room:setRounds': (data: { totalRounds: number }) => void;
+  'game:start': (data: { totalRounds: number }) => void;
   'game:bid': (data: { bid: number }) => void;
   'game:play': (data: { card: Card }) => void;
 }
@@ -24,5 +27,6 @@ export interface ServerToClientEvents {
   'game:trickWon': (data: { winnerSeat: number; trick: { seatIndex: number; card: Card }[] }) => void;
   'game:roundScores': (data: { roundNumber: number; bids: number[]; scores: number[]; tricksWon: number[] }) => void;
   'game:matchOver': (data: MatchOverPayload) => void;
+  'game:resync': (data: GameStartedPayload) => void;
   'game:error': (data: { message: string }) => void;
 }

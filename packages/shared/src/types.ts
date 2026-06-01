@@ -22,6 +22,7 @@ export type RoomStatus = 'lobby' | 'bidding' | 'playing' | 'roundEnd' | 'matchEn
 export interface RoomPlayer {
   socketId: string;
   username: string;
+  connected: boolean;
 }
 
 export interface RoomUpdatePayload {
@@ -29,6 +30,7 @@ export interface RoomUpdatePayload {
   players: RoomPlayer[];
   hostId: string;
   status: RoomStatus;
+  totalRounds: number;
 }
 
 export interface TrickPlay {
@@ -39,6 +41,7 @@ export interface TrickPlay {
 export interface PublicGameState {
   phase: 'bidding' | 'playing' | 'roundEnd' | 'matchEnd';
   roundNumber: number;
+  totalRounds: number;
   dealerIndex: number;
   currentTurn: number;
   bids: (number | null)[];
@@ -47,6 +50,7 @@ export interface PublicGameState {
   trickLeader: number;
   roundScores: number[][];
   totalScores: number[];
+  completedRounds: RoundData[];
   players: string[];
 }
 
@@ -57,6 +61,7 @@ export interface GameStartedPayload {
   firstBidder: number;
   players: string[];
   roundNumber: number;
+  totalRounds: number;
 }
 
 export interface MatchOverPayload {
