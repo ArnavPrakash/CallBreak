@@ -194,8 +194,11 @@ function App() {
       setErrorWithTimeout(message);
     });
 
-    socket.on('game:cardPlayed', () => {
+    socket.on('game:cardPlayed', ({ seatIndex, card }) => {
       sounds.playCardPlaySound();
+      if (gameStarted && seatIndex === gameStarted.seatIndex) {
+        setHand((prev) => prev.filter((c) => !(c.suit === card.suit && c.rank === card.rank)));
+      }
     });
 
     socket.on('room:messageReceived', (data) => {

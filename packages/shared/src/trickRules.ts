@@ -22,10 +22,28 @@ function cardsOfSuitMustBeat(hand: Card[], suit: Suit, trick: TrickPlay[]): Card
 export function getLegalPlays(hand: Card[], ledSuit: Suit | null, trick: TrickPlay[] = []): Card[] {
   if (!ledSuit) return [...hand];
 
-  if (hasSuit(hand, ledSuit)) {
-    return cardsOfSuitMustBeat(hand, ledSuit, trick);
+  if (ledSuit !== TRUMP) {
+    if (hasSuit(hand, ledSuit)) {
+      // Rule 1: If someone has played a spade on a non-spade led suit, play all available cards of the active suit.
+      const spadePlayed = trick.some((p) => p.card.suit === TRUMP);
+      if (spadePlayed) {
+        return hand.filter((c) => c.suit === ledSuit);
+      }
+      return cardsOfSuitMustBeat(hand, ledSuit, trick);
+    }
+
+    // Rule 2: If out of active suit, and does not have a spade bigger than the highest spade currently in play:
+    const highestSpade = highestRankInTrick(trick, TRUMP);
+    const spades = hand.filter((c) => c.suit === TRUMP);
+    const hasHigherSpade = spades.some((c) => c.rank > highestSpade);
+
+    if (!hasHigherSpade) {
+      return [...hand];
+    }
+    return spades.filter((c) => c.rank > highestSpade);
   }
 
+  // Active suit is TRUMP ('S')
   if (hasSuit(hand, TRUMP)) {
     return cardsOfSuitMustBeat(hand, TRUMP, trick);
   }

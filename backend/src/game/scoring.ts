@@ -7,7 +7,7 @@ export function calculateRoundScore(bid: number, tricksWon: number): number {
     return base + 0.1 * (tricksWon - actualBid);
   }
   
-  return isBlind ? -actualBid * 2 : -actualBid;
+  return -actualBid;
 }
 
 export function findWinner(totalScores: number[], players: string[]): string {
