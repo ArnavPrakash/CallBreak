@@ -39,7 +39,9 @@ export function PlayerSeat({
         {!connected && ' — away'}
       </div>
       {(bid !== undefined && bid !== null) && (
-        <span className="text-xs text-gray-300 px-1">Bid: {bid}</span>
+        <span className="text-xs text-gray-300 px-1">
+          Bid: {bid < 0 ? `Blind ${Math.abs(bid)}` : bid}
+        </span>
       )}
       {tricks !== undefined && (
         <span className="text-xs text-gray-300 px-1">Tricks: {tricks}</span>

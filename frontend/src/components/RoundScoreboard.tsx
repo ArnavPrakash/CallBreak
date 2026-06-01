@@ -47,7 +47,9 @@ export function RoundScoreboard({
                 <td className="py-2 pr-2 text-gold">{round.roundNumber}</td>
                 {round.scores.map((score, i) => (
                   <td key={i} className="text-center py-2 px-1">
-                    <div className="text-xs text-gray-400">bid {round.bids[i]}</div>
+                    <div className="text-xs text-gray-400">
+                      bid {round.bids[i] < 0 ? `Blind ${Math.abs(round.bids[i])}` : round.bids[i]}
+                    </div>
                     <div className={score >= 0 ? 'text-green-300' : 'text-red-300'}>
                       {score.toFixed(1)}
                     </div>
@@ -61,12 +63,17 @@ export function RoundScoreboard({
                   {currentRound}
                   <span className="text-xs text-gray-400 block">in progress</span>
                 </td>
-                {players.map((_, i) => (
-                  <td key={i} className="text-center py-2 px-1">
-                    <div className="text-xs text-gray-400">bid {gameState.bids[i] ?? '—'}</div>
-                    <div className="text-gray-300">tricks {gameState.tricksWon[i]}</div>
-                  </td>
-                ))}
+                {players.map((_, i) => {
+                  const b = gameState.bids[i];
+                  return (
+                    <td key={i} className="text-center py-2 px-1">
+                      <div className="text-xs text-gray-400">
+                        bid {b !== null && b !== undefined ? (b < 0 ? `Blind ${Math.abs(b)}` : b) : '—'}
+                      </div>
+                      <div className="text-gray-300">tricks {gameState.tricksWon[i]}</div>
+                    </td>
+                  );
+                })}
               </tr>
             )}
           </tbody>

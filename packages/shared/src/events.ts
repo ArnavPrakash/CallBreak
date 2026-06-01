@@ -11,6 +11,7 @@ export interface ClientToServerEvents {
   'game:start': (data: { totalRounds: number }) => void;
   'game:bid': (data: { bid: number }) => void;
   'game:play': (data: { card: Card }) => void;
+  'room:message': (data: { message: string }) => void;
 }
 
 // Server -> Client
@@ -29,4 +30,5 @@ export interface ServerToClientEvents {
   'game:matchOver': (data: MatchOverPayload) => void;
   'game:resync': (data: GameStartedPayload) => void;
   'game:error': (data: { message: string }) => void;
+  'room:messageReceived': (data: { username: string; message: string; timestamp: number }) => void;
 }

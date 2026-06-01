@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { RoomUpdatePayload } from '@callbreak/shared';
 import { fetchHistory, type HistoryResponse } from '../api/history';
 import { connectSocket, getSocket } from '../socket/client';
+import { ChatDrawer } from '../components/ChatDrawer';
 import { loadSession } from '../utils/session';
 
 interface LobbyProps {
@@ -10,9 +11,19 @@ interface LobbyProps {
   room: RoomUpdatePayload | null;
   error: string | null;
   onReconnect: () => void;
+  chatMessages: import('../components/ChatDrawer').ChatMessage[];
+  onSendChatMessage: (message: string) => void;
 }
 
-export function Lobby({ username, onUsernameChange, room, error, onReconnect }: LobbyProps) {
+export function Lobby({
+  username,
+  onUsernameChange,
+  room,
+  error,
+  onReconnect,
+  chatMessages,
+  onSendChatMessage,
+}: LobbyProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
@@ -279,6 +290,13 @@ export function Lobby({ username, onUsernameChange, room, error, onReconnect }: 
           </div>
         )}
       </div>
+      {room && (
+        <ChatDrawer
+          messages={chatMessages}
+          currentUsername={username}
+          onSendMessage={onSendChatMessage}
+        />
+      )}
     </div>
   );
 }

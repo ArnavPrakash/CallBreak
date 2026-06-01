@@ -5,6 +5,7 @@ import {
   getMatchWinner,
   normalizeTotalRounds,
   playCard,
+  resolveTrick,
   startNextRound,
   submitBid,
   toPublicState,
@@ -164,23 +165,42 @@ export async function handlePlay(io: Server, socket: GameSocket, card: Card): Pr
 
   io.to(room.code).emit('game:cardPlayed', { seatIndex, card });
 
-  if (result.trickComplete && result.completedTrick && result.winnerSeat !== undefined) {
-    io.to(room.code).emit('game:trickWon', {
-      winnerSeat: result.winnerSeat,
-      trick: result.completedTrick,
-    });
-  }
+  if (result.trickComplete) {
+    // Broadcast state containing all 4 played cards immediately
+    emitGameState(io, room);
 
-  if (room.game.phase === 'roundEnd') {
-    await handleRoundEnd(io, room);
-  } else if (room.game.phase === 'matchEnd') {
-    await handleMatchEnd(io, room);
-  } else if (room.game.phase === 'playing') {
-    io.to(room.code).emit('game:playRequest', { seatIndex: room.game.currentTurn });
-    sendPrivateHands(io, room);
-  }
+    // Delay the resolution of the trick by 2 seconds so everyone can see the 4th card
+    setTimeout(async () => {
+      // Ensure the game still exists and is in the correct paused state before resolving
+      if (!room.game || room.game.phase !== 'playing' || room.game.currentTurn !== -1) return;
 
-  emitGameState(io, room);
+      const resolveResult = resolveTrick(room.game);
+      if (resolveResult.ok && resolveResult.winnerSeat !== undefined && resolveResult.completedTrick) {
+        io.to(room.code).emit('game:trickWon', {
+          winnerSeat: resolveResult.winnerSeat,
+          trick: resolveResult.completedTrick,
+        });
+
+        const currentPhase = room.game.phase as string;
+        if (currentPhase === 'roundEnd') {
+          await handleRoundEnd(io, room);
+        } else if (currentPhase === 'matchEnd') {
+          await handleMatchEnd(io, room);
+        } else if (currentPhase === 'playing') {
+          io.to(room.code).emit('game:playRequest', { seatIndex: room.game.currentTurn });
+          sendPrivateHands(io, room);
+          emitGameState(io, room);
+        }
+      }
+    }, 2000);
+  } else {
+    // Normal play with fewer than 4 cards in the trick
+    if (room.game.phase === 'playing') {
+      io.to(room.code).emit('game:playRequest', { seatIndex: room.game.currentTurn });
+      sendPrivateHands(io, room);
+    }
+    emitGameState(io, room);
+  }
 }
 
 async function handleRoundEnd(io: Server, room: Room): Promise<void> {

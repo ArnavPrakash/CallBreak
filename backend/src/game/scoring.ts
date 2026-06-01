@@ -1,8 +1,13 @@
 export function calculateRoundScore(bid: number, tricksWon: number): number {
-  if (tricksWon >= bid) {
-    return bid + 0.1 * (tricksWon - bid);
+  const isBlind = bid < 0;
+  const actualBid = Math.abs(bid);
+
+  if (tricksWon >= actualBid) {
+    const base = isBlind ? actualBid * 2 : actualBid;
+    return base + 0.1 * (tricksWon - actualBid);
   }
-  return -bid;
+  
+  return isBlind ? -actualBid * 2 : -actualBid;
 }
 
 export function findWinner(totalScores: number[], players: string[]): string {

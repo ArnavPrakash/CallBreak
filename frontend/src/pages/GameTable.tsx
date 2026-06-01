@@ -8,11 +8,12 @@ import type {
 } from '@callbreak/shared';
 import { getLegalPlays } from '@callbreak/shared';
 import { BidPanel } from '../components/BidPanel';
-import { CardView } from '../components/CardView';
+import { CardView, CardBack } from '../components/CardView';
 import { MatchResults } from '../components/MatchResults';
 import { PlayerSeat } from '../components/PlayerSeat';
 import { RoundScoreboard } from '../components/RoundScoreboard';
 import { TrickCenter } from '../components/TrickCenter';
+import { ChatDrawer } from '../components/ChatDrawer';
 import { connectSocket } from '../socket/client';
 import { cardKey } from '../utils/cards';
 import { loadSession } from '../utils/session';
@@ -25,6 +26,9 @@ interface GameTableProps {
   onLeave: () => void;
   matchOver: MatchOverPayload | null;
   error: string | null;
+  chatMessages: import('../components/ChatDrawer').ChatMessage[];
+  onSendChatMessage: (message: string) => void;
+  username: string;
 }
 
 function seatToPosition(seatIndex: number, mySeatIndex: number): 'bottom' | 'left' | 'top' | 'right' {
@@ -46,11 +50,23 @@ export function GameTable({
   onLeave,
   matchOver,
   error,
+  chatMessages,
+  onSendChatMessage,
+  username,
 }: GameTableProps) {
   const [showScoreboard, setShowScoreboard] = useState(false);
+  const [cardsRevealed, setCardsRevealed] = useState(false);
+
   const mySeat = gameStarted.seatIndex;
   const socket = connectSocket();
   const totalRounds = gameState?.totalRounds ?? gameStarted.totalRounds ?? 5;
+
+  const roundNumber = gameState?.roundNumber ?? gameStarted.roundNumber ?? 1;
+  const [lastRoundNumber, setLastRoundNumber] = useState(roundNumber);
+  if (roundNumber !== lastRoundNumber) {
+    setLastRoundNumber(roundNumber);
+    setCardsRevealed(false);
+  }
 
   const players = gameState?.players ?? gameStarted.players;
 
@@ -122,19 +138,23 @@ export function GameTable({
 
         <TrickCenter trick={currentTrick} mySeatIndex={mySeat} />
 
-        <div className="absolute bottom-0 left-0 right-0 pt-2 pb-4 px-2 flex justify-center gap-1 flex-wrap max-h-28 overflow-x-auto z-20">
-          {hand.map((card) => {
-            const key = cardKey(card);
-            const canPlay = isMyPlayTurn && legalCards.has(key);
-            return (
-              <CardView
-                key={key}
-                card={card}
-                onClick={canPlay ? () => handlePlay(card) : undefined}
-                disabled={!canPlay}
-              />
-            );
-          })}
+        <div className="absolute bottom-2 left-0 right-0 py-4 px-2 flex justify-center gap-1.5 flex-wrap z-20 overflow-visible">
+          {phase === 'bidding' && bids[mySeat] === null && !cardsRevealed
+            ? Array.from({ length: hand.length }).map((_, idx) => (
+                <CardBack key={`back-${idx}`} />
+              ))
+            : hand.map((card) => {
+                const key = cardKey(card);
+                const canPlay = isMyPlayTurn && legalCards.has(key);
+                return (
+                  <CardView
+                    key={key}
+                    card={card}
+                    onClick={canPlay ? () => handlePlay(card) : undefined}
+                    disabled={!canPlay}
+                  />
+                );
+              })}
         </div>
       </div>
 
@@ -144,7 +164,13 @@ export function GameTable({
         </div>
       )}
 
-      {showBidPanel && <BidPanel onBid={handleBid} />}
+      {showBidPanel && (
+        <BidPanel
+          onBid={handleBid}
+          onReveal={() => setCardsRevealed(true)}
+          isRevealed={cardsRevealed}
+        />
+      )}
 
       {isMyPlayTurn && !showBidPanel && !matchOver && (
         <div className="fixed bottom-40 left-1/2 -translate-x-1/2 bg-gold text-felt-dark px-4 py-2 rounded-full text-sm font-medium animate-pulse z-40">
@@ -153,6 +179,12 @@ export function GameTable({
       )}
 
       {matchOver && <MatchResults result={matchOver} onClose={onLeave} />}
+
+      <ChatDrawer
+        messages={chatMessages}
+        currentUsername={username}
+        onSendMessage={onSendChatMessage}
+      />
 
       {!matchOver && (
         <div className="fixed top-4 right-4 flex gap-3 z-20 items-center">

@@ -61,7 +61,9 @@ export function createGameEngine(
 export function submitBid(state: GameEngineState, seatIndex: number, bid: number): boolean {
   if (state.phase !== 'bidding') return false;
   if (state.biddingIndex !== seatIndex) return false;
-  if (bid < 1 || bid > 13) return false;
+  const isValidNormal = bid >= 1 && bid <= 13;
+  const isValidBlind = bid <= -5 && bid >= -13;
+  if (!isValidNormal && !isValidBlind) return false;
 
   state.bids[seatIndex] = bid;
   state.biddingIndex = (state.biddingIndex + 1) % 4;
@@ -84,6 +86,7 @@ export interface PlayResult {
 export function playCard(state: GameEngineState, seatIndex: number, card: Card): PlayResult {
   if (state.phase !== 'playing') return { ok: false };
   if (state.currentTurn !== seatIndex) return { ok: false };
+  if (state.currentTrick.length >= 4) return { ok: false };
 
   const hand = state.hands[seatIndex];
   const ledSuit: Suit | null = state.currentTrick.length > 0 ? state.currentTrick[0].card.suit : null;
@@ -97,6 +100,14 @@ export function playCard(state: GameEngineState, seatIndex: number, card: Card):
     state.currentTurn = (state.currentTurn + 1) % 4;
     return { ok: true };
   }
+
+  // 4th card played: set currentTurn to -1 to pause/block plays until resolution
+  state.currentTurn = -1;
+  return { ok: true, trickComplete: true };
+}
+
+export function resolveTrick(state: GameEngineState): PlayResult {
+  if (state.currentTrick.length !== 4) return { ok: false };
 
   const completedTrick = [...state.currentTrick];
   const winnerSeat = determineTrickWinner(completedTrick);
@@ -112,6 +123,7 @@ export function playCard(state: GameEngineState, seatIndex: number, card: Card):
 
   return { ok: true, trickComplete: true, completedTrick, winnerSeat };
 }
+
 
 function endRound(state: GameEngineState): void {
   const bids = state.bids as number[];

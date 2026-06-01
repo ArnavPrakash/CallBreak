@@ -136,6 +136,18 @@ export function setupSocket(io: GameServer): void {
       void handlePlay(io, socket, card);
     });
 
+    socket.on('room:message', ({ message }) => {
+      const room = getRoomBySocket(socket.id);
+      if (!room) return;
+      const player = room.players.find((p) => p.socketId === socket.id);
+      if (!player) return;
+      io.to(room.code).emit('room:messageReceived', {
+        username: player.username,
+        message: message.trim(),
+        timestamp: Date.now(),
+      });
+    });
+
     socket.on('disconnect', () => {
       const result = markPlayerDisconnected(socket.id);
       if (result.room) {

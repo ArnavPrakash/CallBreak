@@ -9,6 +9,7 @@ import { connectSocket, getSocket } from './socket/client';
 import { GameTable } from './pages/GameTable';
 import { Lobby } from './pages/Lobby';
 import { clearSession, loadSession, saveSession } from './utils/session';
+import type { ChatMessage } from './components/ChatDrawer';
 
 type View = 'lobby' | 'game';
 
@@ -21,6 +22,7 @@ function App() {
   const [gameState, setGameState] = useState<PublicGameState | null>(null);
   const [hand, setHand] = useState<import('@callbreak/shared').Card[]>([]);
   const [matchOver, setMatchOver] = useState<MatchOverPayload | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
     sessionStorage.setItem('username', username);
@@ -43,7 +45,12 @@ function App() {
     socket.io.on('reconnect', tryReconnect);
 
     socket.on('room:updated', (data) => {
-      setRoom(data);
+      setRoom((prev) => {
+        if (prev?.code !== data.code) {
+          setChatMessages([]);
+        }
+        return data;
+      });
       setError(null);
       saveSession(data.code, username.trim());
 
@@ -91,6 +98,10 @@ function App() {
       setError(message);
     });
 
+    socket.on('room:messageReceived', (data) => {
+      setChatMessages((prev) => [...prev, data]);
+    });
+
     if (socket.connected) {
       tryReconnect();
     }
@@ -106,6 +117,7 @@ function App() {
       socket.off('game:state');
       socket.off('game:matchOver');
       socket.off('game:error');
+      socket.off('room:messageReceived');
     };
   }, [username]);
 
@@ -122,6 +134,11 @@ function App() {
     setGameState(null);
     setMatchOver(null);
     setRoom(null);
+    setChatMessages([]);
+  };
+
+  const handleSendChatMessage = (message: string) => {
+    getSocket().emit('room:message', { message });
   };
 
   if (view === 'game' && gameStarted) {
@@ -134,6 +151,9 @@ function App() {
         onLeave={handleLeaveGame}
         matchOver={matchOver}
         error={error}
+        chatMessages={chatMessages}
+        onSendChatMessage={handleSendChatMessage}
+        username={username.trim()}
       />
     );
   }
@@ -155,6 +175,8 @@ function App() {
           });
         }
       }}
+      chatMessages={chatMessages}
+      onSendChatMessage={handleSendChatMessage}
     />
   );
 }
