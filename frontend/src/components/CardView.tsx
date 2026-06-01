@@ -26,7 +26,7 @@ export function CardView({ card, onClick, disabled, small, played }: CardViewPro
       <img
         src={imagePath}
         alt={`${card.rank} of ${card.suit}`}
-        className="w-full h-full object-cover select-none"
+        className="w-full h-full object-fill select-none"
         draggable={false}
       />
     </button>

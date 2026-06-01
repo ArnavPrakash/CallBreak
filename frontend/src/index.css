@@ -5,3 +5,95 @@
 body {
   @apply bg-felt-dark text-white min-h-screen antialiased;
 }
+
+@keyframes dealCard {
+  0% {
+    transform: translateY(180px) scale(0.3) rotate(15deg);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(-10px) scale(1.05) rotate(-2deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.animate-deal {
+  animation: dealCard 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.1) both;
+}
+
+@keyframes playFromBottom {
+  0% { transform: translate(-50%, 140px) scale(0.7); opacity: 0; }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+}
+@keyframes playFromTop {
+  0% { transform: translate(-50%, -140px) scale(0.7); opacity: 0; }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+}
+@keyframes playFromLeft {
+  0% { transform: translate(-140px, -50%) scale(0.7); opacity: 0; }
+  100% { transform: translate(0, -50%) scale(1); opacity: 1; }
+}
+@keyframes playFromRight {
+  0% { transform: translate(140px, -50%) scale(0.7); opacity: 0; }
+  100% { transform: translate(0, -50%) scale(1); opacity: 1; }
+}
+
+.animate-play-bottom {
+  animation: playFromBottom 0.35s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+.animate-play-top {
+  animation: playFromTop 0.35s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+.animate-play-left {
+  animation: playFromLeft 0.35s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+.animate-play-right {
+  animation: playFromRight 0.35s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+@keyframes pulseGold {
+  0%, 100% {
+    box-shadow: 0 0 0 0px rgba(212, 175, 55, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(212, 175, 55, 0);
+  }
+}
+
+.animate-turn-pulse {
+  animation: pulseGold 2s infinite ease-in-out;
+}
+
+@keyframes clearToBottom {
+  0% { transform: scale(1) opacity(1); }
+  100% { transform: translateY(220px) scale(0.2) rotate(15deg); opacity: 0; }
+}
+@keyframes clearToTop {
+  0% { transform: scale(1) opacity(1); }
+  100% { transform: translateY(-220px) scale(0.2) rotate(-15deg); opacity: 0; }
+}
+@keyframes clearToLeft {
+  0% { transform: scale(1) opacity(1); }
+  100% { transform: translateX(-220px) scale(0.2) rotate(-15deg); opacity: 0; }
+}
+@keyframes clearToRight {
+  0% { transform: scale(1) opacity(1); }
+  100% { transform: translateX(220px) scale(0.2) rotate(15deg); opacity: 0; }
+}
+
+.animate-clear-bottom {
+  animation: clearToBottom 0.5s cubic-bezier(0.55, 0.055, 0.675, 0.19) both;
+}
+.animate-clear-top {
+  animation: clearToTop 0.5s cubic-bezier(0.55, 0.055, 0.675, 0.19) both;
+}
+.animate-clear-left {
+  animation: clearToLeft 0.5s cubic-bezier(0.55, 0.055, 0.675, 0.19) both;
+}
+.animate-clear-right {
+  animation: clearToRight 0.5s cubic-bezier(0.55, 0.055, 0.675, 0.19) both;
+}

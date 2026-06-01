@@ -23,6 +23,7 @@ function App() {
   const [hand, setHand] = useState<import('@callbreak/shared').Card[]>([]);
   const [matchOver, setMatchOver] = useState<MatchOverPayload | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [lastTrickWon, setLastTrickWon] = useState<{ winnerSeat: number; trick: import('@callbreak/shared').TrickPlay[] } | null>(null);
 
   useEffect(() => {
     sessionStorage.setItem('username', username);
@@ -102,6 +103,13 @@ function App() {
       setChatMessages((prev) => [...prev, data]);
     });
 
+    socket.on('game:trickWon', (data) => {
+      setLastTrickWon(data);
+      setTimeout(() => {
+        setLastTrickWon(null);
+      }, 1500);
+    });
+
     if (socket.connected) {
       tryReconnect();
     }
@@ -118,6 +126,7 @@ function App() {
       socket.off('game:matchOver');
       socket.off('game:error');
       socket.off('room:messageReceived');
+      socket.off('game:trickWon');
     };
   }, [username]);
 
@@ -154,6 +163,7 @@ function App() {
         chatMessages={chatMessages}
         onSendChatMessage={handleSendChatMessage}
         username={username.trim()}
+        lastTrickWon={lastTrickWon}
       />
     );
   }

@@ -29,6 +29,7 @@ interface GameTableProps {
   chatMessages: import('../components/ChatDrawer').ChatMessage[];
   onSendChatMessage: (message: string) => void;
   username: string;
+  lastTrickWon: { winnerSeat: number; trick: import('@callbreak/shared').TrickPlay[] } | null;
 }
 
 function seatToPosition(seatIndex: number, mySeatIndex: number): 'bottom' | 'left' | 'top' | 'right' {
@@ -53,6 +54,7 @@ export function GameTable({
   chatMessages,
   onSendChatMessage,
   username,
+  lastTrickWon,
 }: GameTableProps) {
   const [showScoreboard, setShowScoreboard] = useState(false);
   const [cardsRevealed, setCardsRevealed] = useState(false);
@@ -136,23 +138,34 @@ export function GameTable({
           />
         ))}
 
-        <TrickCenter trick={currentTrick} mySeatIndex={mySeat} />
+        <TrickCenter trick={currentTrick} mySeatIndex={mySeat} lastTrickWon={lastTrickWon} />
 
         <div className="absolute bottom-2 left-0 right-0 py-4 px-2 flex justify-center gap-1.5 flex-wrap z-20 overflow-visible">
           {phase === 'bidding' && bids[mySeat] === null && !cardsRevealed
             ? Array.from({ length: hand.length }).map((_, idx) => (
-                <CardBack key={`back-${idx}`} />
+                <div
+                  key={`back-${idx}`}
+                  className="animate-deal"
+                  style={{ animationDelay: `${idx * 40}ms` }}
+                >
+                  <CardBack />
+                </div>
               ))
-            : hand.map((card) => {
+            : hand.map((card, idx) => {
                 const key = cardKey(card);
                 const canPlay = isMyPlayTurn && legalCards.has(key);
                 return (
-                  <CardView
+                  <div
                     key={key}
-                    card={card}
-                    onClick={canPlay ? () => handlePlay(card) : undefined}
-                    disabled={!canPlay}
-                  />
+                    className="animate-deal"
+                    style={{ animationDelay: `${idx * 40}ms` }}
+                  >
+                    <CardView
+                      card={card}
+                      onClick={canPlay ? () => handlePlay(card) : undefined}
+                      disabled={!canPlay}
+                    />
+                  </div>
                 );
               })}
         </div>
