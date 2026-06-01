@@ -126,7 +126,7 @@ export function GameTable({
       <div className="absolute inset-4 rounded-3xl bg-felt border-4 border-felt-light/30 shadow-inner">
         <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-30 pointer-events-none">
           {/* Left panel: Round & Total scores */}
-          <div className="flex flex-col gap-1.5 text-sm pointer-events-auto">
+          <div className="flex flex-col gap-1.5 text-sm pointer-events-auto scale-90 origin-top-left md:scale-100">
             <div className="bg-felt-dark/80 backdrop-blur-sm border border-gold/10 px-3 py-1.5 rounded-lg shadow-sm text-gold font-medium w-fit">
               Round {gameState?.roundNumber ?? gameStarted.roundNumber}/{totalRounds}
             </div>
@@ -146,7 +146,7 @@ export function GameTable({
 
           {/* Right panel: Scoreboard and Leave buttons */}
           {!matchOver && (
-            <div className="flex items-center gap-3 bg-felt-dark/80 backdrop-blur-sm border border-gold/20 px-4 py-2 rounded-full shadow-md pointer-events-auto">
+            <div className="flex items-center gap-3 bg-felt-dark/80 backdrop-blur-sm border border-gold/20 px-4 py-2 rounded-full shadow-md pointer-events-auto scale-90 origin-top-right md:scale-100">
               <button
                 type="button"
                 onClick={() => setShowScoreboard(true)}
@@ -206,7 +206,7 @@ export function GameTable({
 
         <TrickCenter trick={currentTrick} mySeatIndex={mySeat} lastTrickWon={lastTrickWon} />
 
-        <div className={`absolute bottom-2 left-0 right-0 py-4 px-2 flex justify-center gap-1.5 flex-wrap overflow-visible ${
+        <div className={`absolute bottom-2 left-0 right-0 py-2 px-4 flex justify-center -space-x-3.5 sm:-space-x-5 md:-space-x-6 overflow-visible ${
           phase === 'bidding' && cardsRevealed ? 'z-[60]' : 'z-20'
         }`}>
           {phase === 'bidding' && bids[mySeat] === null && !cardsRevealed

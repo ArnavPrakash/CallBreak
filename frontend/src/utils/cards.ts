@@ -44,6 +44,11 @@ const RANK_NAMES: Record<number, string> = {
 export function getCardImagePath(card: Card): string {
   const rank = RANK_NAMES[card.rank] ?? String(card.rank);
   const suit = SUIT_NAMES[card.suit];
-  return `/cards/${rank}_of_${suit}.png`;
+  
+  const isFaceCard = [11, 12, 13].includes(card.rank);
+  const isAceOfSpades = card.rank === 14 && card.suit === 'S';
+  const suffix = (isFaceCard || isAceOfSpades) ? '2' : '';
+  
+  return `/cards/${rank}_of_${suit}${suffix}.png`;
 }
 
