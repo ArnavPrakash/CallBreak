@@ -15,6 +15,7 @@ interface LobbyProps {
   chatMessages: import('../components/ChatDrawer').ChatMessage[];
   onSendChatMessage: (message: string) => void;
   onLeaveRoom: () => void;
+  onStartTutorial: () => void;
 }
 
 export function Lobby({
@@ -26,6 +27,7 @@ export function Lobby({
   chatMessages,
   onSendChatMessage,
   onLeaveRoom,
+  onStartTutorial,
 }: LobbyProps) {
   const [joinCode, setJoinCode] = useState('');
   const [showHistory, setShowHistory] = useState(false);
@@ -192,6 +194,13 @@ export function Lobby({
                   Join
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={onStartTutorial}
+                className="w-full py-2.5 rounded-lg bg-felt-light hover:bg-gold hover:text-felt-dark text-white border border-gold/20 font-bold text-sm transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer outline-none"
+              >
+                🎓 Interactive Tutorial
+              </button>
             </div>
           ) : (
             <div className="space-y-4">

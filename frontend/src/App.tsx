@@ -11,8 +11,9 @@ import { Lobby } from './pages/Lobby';
 import { clearSession, loadSession, saveSession } from './utils/session';
 import type { ChatMessage } from './components/ChatDrawer';
 import * as sounds from './utils/sounds';
+import { TutorialTable } from './components/TutorialTable';
 
-type View = 'lobby' | 'game';
+type View = 'lobby' | 'game' | 'tutorial';
 
 function App() {
   const [username, setUsername] = useState(() => sessionStorage.getItem('username') || '');
@@ -287,6 +288,12 @@ function App() {
     getSocket().emit('room:message', { message });
   };
 
+  if (view === 'tutorial') {
+    return (
+      <TutorialTable onExit={() => setView('lobby')} />
+    );
+  }
+
   if (view === 'game' && gameStarted) {
     return (
       <>
@@ -349,6 +356,7 @@ function App() {
         chatMessages={chatMessages}
         onSendChatMessage={handleSendChatMessage}
         onLeaveRoom={handleLeaveRoom}
+        onStartTutorial={() => setView('tutorial')}
       />
       {/* Toast Notification Container */}
       <div className="fixed bottom-4 left-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm">
