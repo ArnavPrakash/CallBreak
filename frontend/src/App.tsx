@@ -23,6 +23,7 @@ function App() {
   const [gameStarted, setGameStarted] = useState<GameStartedPayload | null>(null);
   const [gameState, setGameState] = useState<PublicGameState | null>(null);
   const [hand, setHand] = useState<import('@callbreak/shared').Card[]>([]);
+  const [activeEmotes, setActiveEmotes] = useState<Record<string, { emote: string; id: string }>>({});
   const [matchOver, setMatchOver] = useState<MatchOverPayload | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [lastTrickWon, setLastTrickWon] = useState<{ winnerSeat: number; trick: import('@callbreak/shared').TrickPlay[] } | null>(null);
@@ -209,6 +210,27 @@ function App() {
       }
     });
 
+    socket.on('room:emoteReceived', ({ username: emoteUser, emote }) => {
+      const id = Math.random().toString(36).substring(2, 9);
+      setActiveEmotes((prev) => ({
+        ...prev,
+        [emoteUser]: { emote, id },
+      }));
+
+      setTimeout(() => {
+        setActiveEmotes((prev) => {
+          if (prev[emoteUser]?.id === id) {
+            const next = { ...prev };
+            delete next[emoteUser];
+            return next;
+          }
+          return prev;
+        });
+      }, 4000);
+
+      sounds.playChatSound();
+    });
+
     socket.on('game:trickWon', (data) => {
       setLastTrickWon(data);
       if (data.winnerSeat === gameStarted?.seatIndex) {
@@ -237,6 +259,7 @@ function App() {
       socket.off('game:matchOver');
       socket.off('game:error');
       socket.off('room:messageReceived');
+      socket.off('room:emoteReceived');
       socket.off('game:trickWon');
       socket.off('game:cardPlayed');
       if (errorTimeout) clearTimeout(errorTimeout);
@@ -309,6 +332,8 @@ function App() {
           onSendChatMessage={handleSendChatMessage}
           username={username.trim()}
           lastTrickWon={lastTrickWon}
+          activeEmotes={activeEmotes}
+          onSendEmote={(emote) => getSocket().emit('room:emote', { emote })}
         />
         {/* Toast Notification Container */}
         <div className="fixed bottom-4 left-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm">

@@ -150,6 +150,19 @@ export function setupSocket(io: GameServer): void {
       });
     });
 
+    socket.on('room:emote', ({ emote }) => {
+      const room = getRoomBySocket(socket.id);
+      if (!room) return;
+      const player = room.players.find((p) => p.socketId === socket.id);
+      if (!player) return;
+      console.log(`[Emote] Room ${room.code} | ${player.username} sent: ${emote}`);
+      io.to(room.code).emit('room:emoteReceived', {
+        username: player.username,
+        emote: emote.trim(),
+        timestamp: Date.now(),
+      });
+    });
+
     socket.on('disconnect', () => {
       console.log(`[Connection] Client disconnected: ${socket.id}`);
       const result = markPlayerDisconnected(socket.id);
