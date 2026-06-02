@@ -191,9 +191,17 @@ export async function handlePlay(io: Server, socket: GameSocket, card: Card): Pr
 
         const currentPhase = room.game.phase as string;
         if (currentPhase === 'roundEnd') {
-          await handleRoundEnd(io, room);
+          setTimeout(async () => {
+            if (room.game && room.game.phase === 'roundEnd') {
+              await handleRoundEnd(io, room);
+            }
+          }, 3000);
         } else if (currentPhase === 'matchEnd') {
-          await handleMatchEnd(io, room);
+          setTimeout(async () => {
+            if (room.game && room.game.phase === 'matchEnd') {
+              await handleMatchEnd(io, room);
+            }
+          }, 3000);
         } else if (currentPhase === 'playing') {
           io.to(room.code).emit('game:playRequest', { seatIndex: room.game.currentTurn });
           sendPrivateHands(io, room);

@@ -253,6 +253,9 @@ export function GameTable({
           isPreBid={!isMyBidTurn}
           preBidVal={preBid}
           onCancelPreBid={() => setPreBid(null)}
+          players={players}
+          bids={bids}
+          gameState={gameState}
         />
       )}
 
