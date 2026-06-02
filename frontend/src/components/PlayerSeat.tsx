@@ -7,6 +7,7 @@ interface PlayerSeatProps {
   connected?: boolean;
   position: 'bottom' | 'left' | 'top' | 'right';
   activeEmote?: string | null;
+  reactButton?: React.ReactNode;
 }
 
 const reactionImages: Record<string, string> = {
@@ -30,7 +31,7 @@ const arrowStyles = {
   right: '-right-1 top-1/2 -translate-y-1/2 border-r border-t',
 };
 
-function isImageUrl(url: string): boolean {
+export function isImageUrl(url: string): boolean {
   if (reactionImages[url]) return true;
   const clean = url.trim().toLowerCase();
   return (
@@ -56,6 +57,7 @@ export function PlayerSeat({
   connected = true,
   position,
   activeEmote,
+  reactButton,
 }: PlayerSeatProps) {
   const positionClasses = {
     bottom: isMe 
@@ -68,9 +70,9 @@ export function PlayerSeat({
 
   return (
     <div
-      className={`absolute ${positionClasses[position]} flex flex-col items-start gap-1 max-w-[45%] z-10`}
+      className={`absolute ${positionClasses[position]} flex flex-col items-start gap-1 max-w-[45%] ${isMe ? 'z-[90]' : 'z-10'}`}
     >
-      {activeEmote && (
+      {activeEmote && position !== 'bottom' && (
         isImageUrl(activeEmote) ? (
           <div className={`absolute ${emotePositions[position]} w-20 h-20 md:w-24 md:h-24 z-30 animate-bounce select-none flex items-center justify-center`}>
             <img
@@ -89,17 +91,20 @@ export function PlayerSeat({
           </div>
         )
       )}
-      <div
-        className={`px-3 py-1.5 rounded-xl text-xs md:text-sm font-semibold border backdrop-blur-md transition-all shadow-md select-none
-          ${isTurn 
-            ? 'bg-gold text-felt-dark border-gold ring-2 ring-white animate-turn-pulse shadow-lg font-bold' 
-            : 'bg-felt-dark/85 text-gray-100 border-white/10'}
-          ${isMe && !isTurn ? 'border-gold/60 ring-1 ring-gold/20' : ''}
-          ${!connected ? 'opacity-40' : ''}`}
-      >
-        {username}
-        {isMe && <span className="text-[10px] opacity-75 font-normal ml-0.5"> (You)</span>}
-        {!connected && <span className="text-[9px] text-red-400 block font-normal leading-none mt-0.5">away</span>}
+      <div className="flex items-center gap-1.5 pointer-events-auto">
+        <div
+          className={`px-3 py-1.5 rounded-xl text-xs md:text-sm font-semibold border backdrop-blur-md transition-all shadow-md select-none
+            ${isTurn 
+              ? 'bg-gold text-felt-dark border-gold ring-2 ring-white animate-turn-pulse shadow-lg font-bold' 
+              : 'bg-felt-dark/85 text-gray-100 border-white/10'}
+            ${isMe && !isTurn ? 'border-gold/60 ring-1 ring-gold/20' : ''}
+            ${!connected ? 'opacity-40' : ''}`}
+        >
+          {username}
+          {isMe && <span className="text-[10px] opacity-75 font-normal ml-0.5"> (You)</span>}
+          {!connected && <span className="text-[9px] text-red-400 block font-normal leading-none mt-0.5">away</span>}
+        </div>
+        {reactButton}
       </div>
 
       {((bid !== undefined && bid !== null) || tricks !== undefined) && (
