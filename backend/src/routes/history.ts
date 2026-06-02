@@ -46,6 +46,7 @@ router.get('/', async (req: Request, res: Response) => {
         createdAt: m.createdAt,
         playerScore: finalScore,
         won,
+        rounds: m.rounds,
       };
     });
 

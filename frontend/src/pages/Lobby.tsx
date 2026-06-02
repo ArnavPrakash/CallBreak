@@ -4,6 +4,7 @@ import { fetchHistory, type HistoryResponse } from '../api/history';
 import { connectSocket, getSocket } from '../socket/client';
 import { ChatDrawer } from '../components/ChatDrawer';
 import { loadSession } from '../utils/session';
+import { RoundScoreboard } from '../components/RoundScoreboard';
 
 interface LobbyProps {
   username: string;
@@ -31,6 +32,7 @@ export function Lobby({
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
 
   const [totalRounds, setTotalRounds] = useState(5);
 
@@ -384,48 +386,133 @@ export function Lobby({
         </div>
 
         {showHistory && (
-          <div className="bg-felt rounded-xl p-6 border border-felt-light/50">
-            <h2 className="text-lg font-semibold text-gold mb-3">Your stats</h2>
+          <div className="bg-felt rounded-xl p-6 border border-felt-light/40 shadow-xl max-w-2xl w-full mx-auto space-y-6">
+            <div className="flex items-center justify-between border-b border-gold/25 pb-2">
+              <h2 className="text-lg font-bold text-gold uppercase tracking-wide select-none">Your match history & stats</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHistory(false);
+                  setHistoryError(null);
+                  setExpandedMatchId(null);
+                }}
+                className="text-gray-400 hover:text-white text-xs px-3 py-1.5 bg-felt-light hover:bg-felt-light/80 border border-white/5 rounded-lg transition-colors font-bold cursor-pointer outline-none"
+              >
+                Close
+              </button>
+            </div>
+
             {historyError && (
-              <p className="text-red-400 text-sm mb-3 bg-red-900/30 px-3 py-2 rounded">{historyError}</p>
+              <p className="text-red-400 text-sm bg-red-900/30 px-3 py-2 rounded-lg border border-red-500/25">{historyError}</p>
             )}
+
             {history && (
-              <>
-                <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-                  <span>Wins: {history.stats.wins}</span>
-                  <span>Losses: {history.stats.losses}</span>
-                  <span>Games: {history.stats.totalGames}</span>
-                  <span>Avg score: {history.stats.avgScore.toFixed(1)}</span>
+              <div className="space-y-6">
+                {/* Stats Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-felt-dark/60 border border-white/5 rounded-xl p-3 text-center shadow-md">
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-0.5 select-none">Wins</span>
+                    <span className="text-xl font-black text-emerald-400">{history.stats.wins}</span>
+                  </div>
+                  <div className="bg-felt-dark/60 border border-white/5 rounded-xl p-3 text-center shadow-md">
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-0.5 select-none">Losses</span>
+                    <span className="text-xl font-black text-red-400">{history.stats.losses}</span>
+                  </div>
+                  <div className="bg-felt-dark/60 border border-white/5 rounded-xl p-3 text-center shadow-md">
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-0.5 select-none">Games</span>
+                    <span className="text-xl font-black text-gold">{history.stats.totalGames}</span>
+                  </div>
+                  <div className="bg-felt-dark/60 border border-white/5 rounded-xl p-3 text-center shadow-md">
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-0.5 select-none">Avg Score</span>
+                    <span className="text-xl font-black text-gold">{history.stats.avgScore.toFixed(1)}</span>
+                  </div>
                 </div>
-                {history.matches.length === 0 ? (
-                  <p className="text-gray-400 text-sm">No matches yet. Finish a game to see history here.</p>
-                ) : (
-                  <ul className="space-y-2 max-h-48 overflow-y-auto">
-                    {history.matches.map((m) => (
-                      <li key={m.id} className="text-sm px-3 py-2 bg-felt-dark rounded">
-                        <span className={m.won ? 'text-green-400' : 'text-red-400'}>
-                          {m.won ? 'W' : 'L'}
-                        </span>
-                        {' vs '}
-                        {m.players.filter((p) => p !== username).join(', ')}
-                        {' — '}
-                        {m.playerScore.toFixed(1)} pts
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
+
+                {/* Match Cards List */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold text-gold uppercase tracking-wider select-none mb-1">Recent Matches</h3>
+                  {history.matches.length === 0 ? (
+                    <p className="text-gray-400 text-sm text-center py-6">No matches yet. Finish a game to see history here.</p>
+                  ) : (
+                    <div className="space-y-2.5 max-h-[26rem] overflow-y-auto pr-1">
+                      {history.matches.map((m) => {
+                        const isExpanded = expandedMatchId === m.id;
+                        const formattedDate = (() => {
+                          try {
+                            const d = new Date(m.createdAt);
+                            return d.toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            });
+                          } catch {
+                            return '';
+                          }
+                        })();
+
+                        return (
+                          <div
+                            key={m.id}
+                            className={`bg-felt-dark/65 hover:bg-felt-dark/85 border rounded-xl p-3.5 transition-all shadow-md flex flex-col gap-2.5 cursor-pointer
+                              ${isExpanded ? 'border-gold/45 shadow-lg bg-felt-dark/90' : 'border-white/5 hover:border-gold/20'}`}
+                            onClick={() => setExpandedMatchId(isExpanded ? null : m.id)}
+                          >
+                            {/* Card Header */}
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex flex-col items-start gap-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full select-none
+                                    ${m.won 
+                                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' 
+                                      : 'bg-red-500/15 text-red-400 border border-red-500/25'}`}
+                                  >
+                                    {m.won ? 'Win' : 'Loss'}
+                                  </span>
+                                  {formattedDate && (
+                                    <span className="text-[10px] text-gray-400 font-medium select-none">{formattedDate}</span>
+                                  )}
+                                </div>
+                                <span className="text-xs text-gray-300 font-semibold truncate max-w-full">
+                                  vs {m.players.filter((p) => p !== username).join(', ')}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center gap-3 select-none">
+                                <span className={`text-sm font-black px-2.5 py-1 rounded-lg border
+                                  ${m.playerScore >= 0 
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' 
+                                    : 'bg-red-500/10 text-red-400 border-red-500/15'}`}
+                                >
+                                  {m.playerScore >= 0 ? `+${m.playerScore.toFixed(1)}` : m.playerScore.toFixed(1)} pts
+                                </span>
+                                <span className="text-gray-400 font-bold text-sm">
+                                  {isExpanded ? '▲' : '▼'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Expanded Scoreboard */}
+                            {isExpanded && (
+                              <div 
+                                className="border-t border-white/5 pt-3.5 mt-1 select-text animate-fade-in"
+                                onClick={(e) => e.stopPropagation()} // Prevent collapse on table clicks
+                              >
+                                <RoundScoreboard
+                                  players={m.players}
+                                  rounds={m.rounds}
+                                  embedded={true}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                setShowHistory(false);
-                setHistoryError(null);
-              }}
-              className="mt-3 text-sm text-gray-400 hover:text-white"
-            >
-              Close
-            </button>
           </div>
         )}
       </div>

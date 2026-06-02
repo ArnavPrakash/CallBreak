@@ -1,3 +1,5 @@
+import type { RoundData } from '@callbreak/shared';
+
 export interface MatchSummary {
   id: string;
   players: string[];
@@ -5,6 +7,7 @@ export interface MatchSummary {
   createdAt: string;
   playerScore: number;
   won: boolean;
+  rounds: RoundData[];
 }
 
 export interface HistoryResponse {
