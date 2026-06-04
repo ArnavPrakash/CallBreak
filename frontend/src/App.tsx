@@ -9,6 +9,7 @@ import { connectSocket, getSocket } from './socket/client';
 import { GameTable } from './pages/GameTable';
 import { Lobby } from './pages/Lobby';
 import { clearSession, loadSession, saveSession } from './utils/session';
+import { getCardImagePath } from './utils/cards';
 import type { ChatMessage } from './components/ChatDrawer';
 import * as sounds from './utils/sounds';
 import { TutorialTable } from './components/TutorialTable';
@@ -47,6 +48,47 @@ function App() {
   useEffect(() => {
     roomRef.current = room;
   }, [room]);
+
+  useEffect(() => {
+    // Preload all 52 card images and patterns to cache them on the client side
+    const suits = ['S', 'H', 'D', 'C'] as const;
+    const ranks = Array.from({ length: 13 }, (_, i) => i + 2); // 2 to 14
+    const imagesToPreload: string[] = [];
+
+    // Card Back & Jokers
+    imagesToPreload.push('/cards/red_joker.png');
+    imagesToPreload.push('/cards/black_joker.png');
+
+    suits.forEach((suit) => {
+      ranks.forEach((rank) => {
+        const path = getCardImagePath({ rank, suit });
+        imagesToPreload.push(path);
+      });
+    });
+
+    const runPreload = async () => {
+      try {
+        // Also fetch and preload dynamic reactions list
+        const res = await fetch('/api/reactions');
+        if (res.ok) {
+          const files: string[] = await res.json();
+          files.forEach((file) => {
+            imagesToPreload.push(`/reactions/${file}`);
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch reactions for preloading:', err);
+      }
+
+      // Execute browser preloading asynchronously
+      imagesToPreload.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
+    };
+
+    runPreload();
+  }, []);
 
   useEffect(() => {
     sessionStorage.setItem('username', username);
