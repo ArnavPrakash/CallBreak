@@ -20,12 +20,36 @@ import {
 
 type GameServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
+// Rate limiting helpers
+const rateLimits = new Map<string, { count: number; resetTime: number }>();
+
+function isRateLimited(socketId: string, limit = 5, windowMs = 3000): boolean {
+  const now = Date.now();
+  const limitInfo = rateLimits.get(socketId);
+
+  if (!limitInfo || now > limitInfo.resetTime) {
+    rateLimits.set(socketId, { count: 1, resetTime: now + windowMs });
+    return false;
+  }
+
+  limitInfo.count++;
+  if (limitInfo.count > limit) {
+    return true;
+  }
+  return false;
+}
+
 export function setupSocket(io: GameServer): void {
   io.on('connection', (socket) => {
     console.log(`[Connection] Client connected: ${socket.id}`);
+
     socket.on('room:create', ({ username, password }) => {
-      if (!username?.trim()) {
-        socket.emit('room:error', { message: 'Username is required' });
+      if (typeof username !== 'string' || !username.trim() || username.length > 20) {
+        socket.emit('room:error', { message: 'Username is required (max 20 characters)' });
+        return;
+      }
+      if (password !== undefined && (typeof password !== 'string' || password.length > 100)) {
+        socket.emit('room:error', { message: 'Invalid password (max 100 characters)' });
         return;
       }
 
@@ -36,13 +60,26 @@ export function setupSocket(io: GameServer): void {
       }
 
       const room = createRoom(socket.id, username.trim(), password);
+      const player = room.players.find((p) => p.socketId === socket.id);
+      if (player && player.sessionToken) {
+        socket.emit('room:session', { sessionToken: player.sessionToken });
+      }
+
       socket.join(room.code);
       broadcastRoomUpdate(io, room);
     });
 
     socket.on('room:join', ({ code, username, password }) => {
-      if (!username?.trim() || !code?.trim()) {
-        socket.emit('room:error', { message: 'Username and room code are required' });
+      if (typeof username !== 'string' || !username.trim() || username.length > 20) {
+        socket.emit('room:error', { message: 'Username is required (max 20 characters)' });
+        return;
+      }
+      if (typeof code !== 'string' || code.trim().length !== 4) {
+        socket.emit('room:error', { message: 'Room code must be exactly 4 characters' });
+        return;
+      }
+      if (password !== undefined && (typeof password !== 'string' || password.length > 100)) {
+        socket.emit('room:error', { message: 'Invalid password (max 100 characters)' });
         return;
       }
 
@@ -52,10 +89,15 @@ export function setupSocket(io: GameServer): void {
         return;
       }
 
-      const result = joinRoom(code.trim(), socket.id, username.trim(), password);
+      const result = joinRoom(code.trim().toUpperCase(), socket.id, username.trim(), password);
       if (result.error || !result.room) {
         socket.emit('room:error', { message: result.error || 'Failed to join' });
         return;
+      }
+
+      const player = result.room.players.find((p) => p.socketId === socket.id);
+      if (player && player.sessionToken) {
+        socket.emit('room:session', { sessionToken: player.sessionToken });
       }
 
       socket.join(result.room.code);
@@ -65,9 +107,17 @@ export function setupSocket(io: GameServer): void {
       }
     });
 
-    socket.on('room:reconnect', ({ code, username }) => {
-      if (!username?.trim() || !code?.trim()) {
-        socket.emit('room:error', { message: 'Username and room code are required' });
+    socket.on('room:reconnect', ({ code, username, sessionToken }) => {
+      if (typeof username !== 'string' || !username.trim() || username.length > 20) {
+        socket.emit('room:error', { message: 'Invalid username' });
+        return;
+      }
+      if (typeof code !== 'string' || code.trim().length !== 4) {
+        socket.emit('room:error', { message: 'Invalid room code' });
+        return;
+      }
+      if (sessionToken !== undefined && (typeof sessionToken !== 'string' || sessionToken.length > 100)) {
+        socket.emit('room:error', { message: 'Invalid session token' });
         return;
       }
 
@@ -76,7 +126,7 @@ export function setupSocket(io: GameServer): void {
         return;
       }
 
-      const result = reconnectRoom(code.trim(), socket.id, username.trim());
+      const result = reconnectRoom(code.trim().toUpperCase(), socket.id, username.trim(), sessionToken);
       if (result.error || !result.room) {
         socket.emit('room:error', { message: result.error || 'Failed to reconnect' });
         return;
@@ -107,6 +157,10 @@ export function setupSocket(io: GameServer): void {
     });
 
     socket.on('room:setRounds', ({ totalRounds }) => {
+      if (typeof totalRounds !== 'number' || isNaN(totalRounds) || totalRounds < 1 || totalRounds > 20) {
+        socket.emit('room:error', { message: 'Invalid rounds parameter' });
+        return;
+      }
       const room = getRoomBySocket(socket.id);
       if (!room) {
         socket.emit('room:error', { message: 'Not in a room' });
@@ -121,6 +175,10 @@ export function setupSocket(io: GameServer): void {
     });
 
     socket.on('game:start', ({ totalRounds }) => {
+      if (totalRounds !== undefined && (typeof totalRounds !== 'number' || isNaN(totalRounds) || totalRounds < 1 || totalRounds > 20)) {
+        socket.emit('game:error', { message: 'Invalid rounds parameter' });
+        return;
+      }
       const room = getRoomBySocket(socket.id);
       if (!room) {
         socket.emit('game:error', { message: 'Not in a room' });
@@ -130,14 +188,29 @@ export function setupSocket(io: GameServer): void {
     });
 
     socket.on('game:bid', ({ bid }) => {
+      if (typeof bid !== 'number' || isNaN(bid) || bid < -8 || bid > 13) {
+        socket.emit('game:error', { message: 'Invalid bid' });
+        return;
+      }
       handleBid(io, socket, bid);
     });
 
     socket.on('game:play', ({ card }) => {
+      if (!card || typeof card.suit !== 'string' || typeof card.rank !== 'number' || isNaN(card.rank)) {
+        socket.emit('game:error', { message: 'Invalid card payload' });
+        return;
+      }
       void handlePlay(io, socket, card);
     });
 
     socket.on('room:message', ({ message }) => {
+      if (typeof message !== 'string' || !message.trim() || message.length > 500) {
+        return;
+      }
+      if (isRateLimited(socket.id, 5, 3000)) {
+        socket.emit('room:error', { message: 'Too many chat messages. Please slow down.' });
+        return;
+      }
       const room = getRoomBySocket(socket.id);
       if (!room) return;
       const player = room.players.find((p) => p.socketId === socket.id);
@@ -151,6 +224,13 @@ export function setupSocket(io: GameServer): void {
     });
 
     socket.on('room:emote', ({ emote }) => {
+      if (typeof emote !== 'string' || !emote.trim() || emote.length > 500) {
+        return;
+      }
+      if (isRateLimited(socket.id, 8, 3000)) {
+        socket.emit('room:error', { message: 'Too many reactions. Please slow down.' });
+        return;
+      }
       const room = getRoomBySocket(socket.id);
       if (!room) return;
       const player = room.players.find((p) => p.socketId === socket.id);
@@ -165,6 +245,7 @@ export function setupSocket(io: GameServer): void {
 
     socket.on('disconnect', () => {
       console.log(`[Connection] Client disconnected: ${socket.id}`);
+      rateLimits.delete(socket.id);
       const result = markPlayerDisconnected(socket.id);
       if (result.room) {
         socket.leave(result.room.code);

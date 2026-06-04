@@ -1,4 +1,5 @@
 import type { RoomPlayer, RoomStatus } from '@callbreak/shared';
+import crypto from 'crypto';
 import { normalizeTotalRounds, type GameEngineState } from '../game/engine';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -27,8 +28,13 @@ function generateCode(): string {
   return code;
 }
 
-function makePlayer(socketId: string, username: string): RoomPlayer {
-  return { socketId, username, connected: true };
+function makePlayer(socketId: string, username: string, sessionToken?: string): RoomPlayer {
+  return {
+    socketId,
+    username,
+    connected: true,
+    sessionToken: sessionToken || crypto.randomUUID(),
+  };
 }
 
 export function createRoom(socketId: string, username: string, password?: string): Room {
@@ -89,7 +95,8 @@ export function joinRoom(
 export function reconnectRoom(
   code: string,
   socketId: string,
-  username: string
+  username: string,
+  sessionToken?: string
 ): { room?: Room; error?: string } {
   const room = rooms.get(code.toUpperCase());
   if (!room) return { error: 'Room not found' };
@@ -97,6 +104,10 @@ export function reconnectRoom(
   const player = room.players.find((p) => p.username === username);
   if (!player) {
     return { error: 'No seat found for this username in that room' };
+  }
+
+  if (player.sessionToken && player.sessionToken !== sessionToken) {
+    return { error: 'Invalid session token — room hijacking prevented' };
   }
 
   player.socketId = socketId;

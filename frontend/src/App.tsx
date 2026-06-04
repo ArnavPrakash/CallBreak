@@ -113,6 +113,7 @@ function App() {
         socket.emit('room:reconnect', {
           code: session.code,
           username: session.username,
+          sessionToken: session.sessionToken,
         });
       }
     };
@@ -205,6 +206,13 @@ function App() {
       setErrorWithTimeout(message);
     });
 
+    socket.on('room:session', ({ sessionToken }) => {
+      const session = loadSession();
+      if (session) {
+        saveSession(session.code, session.username, sessionToken);
+      }
+    });
+
     const applyGameStarted = (data: GameStartedPayload) => {
       setGameStarted(data);
       setHand(data.hand);
@@ -293,6 +301,7 @@ function App() {
       socket.off('connect', tryReconnect);
       socket.io.off('reconnect', tryReconnect);
       socket.off('room:updated');
+      socket.off('room:session');
       socket.off('room:error');
       socket.off('game:started', applyGameStarted);
       socket.off('game:resync', applyGameStarted);
@@ -416,11 +425,17 @@ function App() {
         onReconnect={() => {
           const session = loadSession();
           if (session) {
-            connectSocket().emit('room:reconnect', session);
+            connectSocket().emit('room:reconnect', {
+              code: session.code,
+              username: session.username,
+              sessionToken: session.sessionToken,
+            });
           } else if (room) {
+            const saved = loadSession();
             connectSocket().emit('room:reconnect', {
               code: room.code,
               username: username.trim(),
+              sessionToken: saved?.sessionToken,
             });
           }
         }}

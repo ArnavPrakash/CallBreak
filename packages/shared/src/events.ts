@@ -4,7 +4,7 @@ import type { Card, GameStartedPayload, MatchOverPayload, PublicGameState, RoomU
 export interface ClientToServerEvents {
   'room:create': (data: { username: string; password?: string }) => void;
   'room:join': (data: { code: string; username: string; password?: string }) => void;
-  'room:reconnect': (data: { code: string; username: string }) => void;
+  'room:reconnect': (data: { code: string; username: string; sessionToken?: string }) => void;
   'room:returnToLobby': () => void;
   'room:leave': () => void;
   'room:setRounds': (data: { totalRounds: number }) => void;
@@ -18,6 +18,7 @@ export interface ClientToServerEvents {
 // Server -> Client
 export interface ServerToClientEvents {
   'room:updated': (data: RoomUpdatePayload) => void;
+  'room:session': (data: { sessionToken: string }) => void;
   'room:error': (data: { message: string }) => void;
   'game:started': (data: GameStartedPayload) => void;
   'game:state': (data: PublicGameState) => void;

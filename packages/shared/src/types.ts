@@ -23,6 +23,7 @@ export interface RoomPlayer {
   socketId: string;
   username: string;
   connected: boolean;
+  sessionToken?: string;
 }
 
 export interface RoomUpdatePayload {
