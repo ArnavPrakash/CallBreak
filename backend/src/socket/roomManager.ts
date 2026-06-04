@@ -105,7 +105,15 @@ export function markPlayerDisconnected(socketId: string): { room?: Room } {
 
     player.connected = false;
 
-    if (room.status === 'lobby' || room.players.filter((p) => p.connected).length === 0) {
+    if (room.hostId === socketId) {
+      const connected = room.players.filter((p) => p.connected);
+      if (connected.length > 0) {
+        room.hostId = connected[0].socketId;
+        console.log(`[Room] Host ${player.username} disconnected. Reassigned hostId to ${room.hostId} (Player: ${connected[0].username})`);
+      }
+    }
+
+    if (room.status === 'lobby' || room.status === 'matchEnd' || room.players.filter((p) => p.connected).length === 0) {
       return leaveRoom(socketId);
     }
 
@@ -176,6 +184,12 @@ export function setRoomMatchEnd(room: Room): void {
 export function resetRoomToLobby(room: Room): void {
   room.status = 'lobby';
   room.game = null;
+  // Remove any players who are disconnected
+  room.players = room.players.filter((p) => p.connected);
+  // Ensure hostId points to a connected player
+  if (room.players.length > 0 && !room.players.some((p) => p.socketId === room.hostId)) {
+    room.hostId = room.players[0].socketId;
+  }
 }
 
 export interface PublicLobbySummary {
