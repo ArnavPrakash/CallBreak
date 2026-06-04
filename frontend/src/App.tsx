@@ -398,6 +398,10 @@ function App() {
             </div>
           ))}
         </div>
+        {/* Version Tag */}
+        <div className="fixed bottom-2 right-2 text-[10px] text-white/35 z-50 select-none pointer-events-none font-mono">
+          v1.2.1
+        </div>
       </>
     );
   }
@@ -445,6 +449,10 @@ function App() {
             <span>{t.message}</span>
           </div>
         ))}
+      </div>
+      {/* Version Tag */}
+      <div className="fixed bottom-2 right-2 text-[10px] text-white/35 z-50 select-none pointer-events-none font-mono">
+        v1.2.1
       </div>
     </>
   );
