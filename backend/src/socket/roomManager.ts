@@ -11,6 +11,7 @@ export interface Room {
   status: RoomStatus;
   totalRounds: number;
   game: GameEngineState | null;
+  password?: string;
 }
 
 const rooms = new Map<string, Room>();
@@ -30,7 +31,7 @@ function makePlayer(socketId: string, username: string): RoomPlayer {
   return { socketId, username, connected: true };
 }
 
-export function createRoom(socketId: string, username: string): Room {
+export function createRoom(socketId: string, username: string, password?: string): Room {
   const code = generateCode();
   const room: Room = {
     code,
@@ -39,16 +40,18 @@ export function createRoom(socketId: string, username: string): Room {
     status: 'lobby',
     totalRounds: 5,
     game: null,
+    password: password || undefined,
   };
   rooms.set(code, room);
-  console.log(`[Room] Room ${code} created by ${username}`);
+  console.log(`[Room] Room ${code} created by ${username} (password: ${password ? 'yes' : 'no'})`);
   return room;
 }
 
 export function joinRoom(
   code: string,
   socketId: string,
-  username: string
+  username: string,
+  password?: string
 ): { room?: Room; error?: string } {
   const upperCode = code.toUpperCase();
   const room = rooms.get(upperCode);
@@ -72,6 +75,10 @@ export function joinRoom(
   }
   if (room.players.some((p) => p.socketId === socketId)) {
     return { error: 'Already in room' };
+  }
+
+  if (room.password && room.password !== password) {
+    return { error: 'Incorrect password' };
   }
 
   room.players.push(makePlayer(socketId, username));
@@ -198,6 +205,7 @@ export interface PublicLobbySummary {
   playerCount: number;
   players: string[];
   totalRounds: number;
+  hasPassword: boolean;
 }
 
 export function getPublicLobbies(): PublicLobbySummary[] {
@@ -211,6 +219,7 @@ export function getPublicLobbies(): PublicLobbySummary[] {
         playerCount: room.players.length,
         players: room.players.map((p) => p.username),
         totalRounds: room.totalRounds,
+        hasPassword: !!room.password,
       });
     }
   }

@@ -234,9 +234,9 @@ export function TutorialTable({ onExit }: TutorialTableProps) {
         <div className="max-w-lg w-full mx-auto z-30 bg-felt-dark/95 border border-gold/30 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col items-center text-center gap-3 animate-fade-in relative -mt-2">
           {step === 1 && (
             <>
-              <h3 className="text-base md:text-lg font-bold text-gold uppercase tracking-wide">Welcome to CallBreak! 🎓</h3>
+              <h3 className="text-base md:text-lg font-bold text-gold uppercase tracking-wide">Welcome to Turrup!! 🎓</h3>
               <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-                CallBreak is a strategic 4-player card game. Spades (♠) are always the trump suit, meaning they can beat any card from other suits. Let's deal your hand to begin!
+                Turrup!! is a strategic 4-player card game. Spades (♠) are always the trump suit, meaning they can beat any card from other suits. Let's deal your hand to begin!
               </p>
               <button
                 type="button"

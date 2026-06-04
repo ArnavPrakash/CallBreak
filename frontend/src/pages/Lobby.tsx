@@ -30,6 +30,9 @@ export function Lobby({
   onStartTutorial,
 }: LobbyProps) {
   const [joinCode, setJoinCode] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [joinPassword, setJoinPassword] = useState('');
+  const [pendingJoinLobby, setPendingJoinLobby] = useState<import('../api/lobbies').LobbySummary | { code: string; hasPassword: boolean } | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -65,12 +68,27 @@ export function Lobby({
     }
   }, [room]);
 
-  const handleJoinLobby = (code: string) => {
+  const handleJoinLobby = (lobby: import('../api/lobbies').LobbySummary) => {
     if (!username.trim()) return;
+    if (lobby.hasPassword) {
+      setPendingJoinLobby(lobby);
+      setJoinPassword('');
+    } else {
+      connectSocket().emit('room:join', {
+        code: lobby.code,
+        username: username.trim(),
+      });
+    }
+  };
+
+  const handleConfirmJoinPassword = () => {
+    if (!pendingJoinLobby || !username.trim()) return;
     connectSocket().emit('room:join', {
-      code: code.toUpperCase(),
+      code: pendingJoinLobby.code,
       username: username.trim(),
+      password: joinPassword,
     });
+    setPendingJoinLobby(null);
   };
 
   const filteredLobbies = lobbies.filter(
@@ -99,13 +117,23 @@ export function Lobby({
 
   const handleCreate = () => {
     if (!username.trim()) return;
-    connectSocket().emit('room:create', { username: username.trim() });
+    connectSocket().emit('room:create', {
+      username: username.trim(),
+      password: createPassword || undefined,
+    });
   };
 
   const handleJoin = () => {
     if (!username.trim() || !joinCode.trim()) return;
+    const codeUpper = joinCode.trim().toUpperCase();
+    const matchingLobby = lobbies.find((l) => l.code === codeUpper);
+    if (matchingLobby?.hasPassword) {
+      setPendingJoinLobby({ code: codeUpper, hasPassword: true });
+      setJoinPassword('');
+      return;
+    }
     connectSocket().emit('room:join', {
-      code: joinCode.trim().toUpperCase(),
+      code: codeUpper,
       username: username.trim(),
     });
   };
@@ -144,7 +172,7 @@ export function Lobby({
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <header className="text-center">
-          <h1 className="text-4xl font-bold text-gold tracking-wide">Callbreak</h1>
+          <h1 className="text-4xl font-bold text-gold tracking-wide">Turrup!!</h1>
           <p className="text-gray-300 mt-2">Multiplayer card game</p>
         </header>
 
@@ -168,14 +196,23 @@ export function Lobby({
 
           {!room ? (
             <div className="space-y-3">
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={!username.trim()}
-                className="w-full py-3 rounded-lg bg-gold text-felt-dark font-semibold hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Create Room
-              </button>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={createPassword}
+                  onChange={(e) => setCreatePassword(e.target.value)}
+                  placeholder="Lobby password (optional)"
+                  className="flex-1 px-4 py-2 rounded-lg bg-felt-dark border border-felt-light text-white focus:outline-none focus:ring-2 focus:ring-gold text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={!username.trim()}
+                  className="px-6 py-2 rounded-lg bg-gold text-felt-dark font-semibold hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                >
+                  Create
+                </button>
+              </div>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -339,8 +376,8 @@ export function Lobby({
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-gold tracking-wider text-sm">
-                          {lobby.code}
+                        <span className="font-mono font-bold text-gold tracking-wider text-sm flex items-center gap-1.5">
+                          {lobby.code} {lobby.hasPassword && <span title="Password Protected">🔒</span>}
                         </span>
                         <span className="text-[10px] bg-felt-light px-1.5 py-0.5 rounded text-gray-300">
                           {lobby.totalRounds} rounds
@@ -359,7 +396,7 @@ export function Lobby({
                       </span>
                       <button
                         type="button"
-                        onClick={() => handleJoinLobby(lobby.code)}
+                        onClick={() => handleJoinLobby(lobby)}
                         disabled={!username.trim()}
                         className="px-3 py-1 bg-gold hover:bg-yellow-400 text-felt-dark rounded text-xs font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-0 outline-none"
                         title={!username.trim() ? 'Enter username to join' : 'Join this room'}
@@ -531,6 +568,51 @@ export function Lobby({
           currentUsername={username}
           onSendMessage={onSendChatMessage}
         />
+      )}
+      {pendingJoinLobby && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 animate-fade-in select-none">
+          <div className="bg-felt border border-gold/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-gold flex items-center justify-center gap-1.5">
+                <span>🔒</span> Password Required
+              </h3>
+              <p className="text-xs text-gray-300 mt-1">
+                Room <span className="font-mono font-bold text-white bg-felt-dark px-1.5 py-0.5 rounded">{pendingJoinLobby.code}</span> requires a password to join.
+              </p>
+            </div>
+            <div>
+              <input
+                type="password"
+                value={joinPassword}
+                onChange={(e) => setJoinPassword(e.target.value)}
+                placeholder="Enter password"
+                className="w-full px-4 py-2.5 rounded-lg bg-felt-dark border border-felt-light text-white focus:outline-none focus:ring-2 focus:ring-gold text-sm text-center"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleConfirmJoinPassword();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingJoinLobby(null)}
+                className="flex-1 py-2 rounded-lg border border-felt-light hover:bg-felt-dark text-gray-300 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmJoinPassword}
+                className="flex-1 py-2 rounded-lg bg-gold hover:bg-yellow-400 text-felt-dark font-bold text-xs"
+              >
+                Join Room
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

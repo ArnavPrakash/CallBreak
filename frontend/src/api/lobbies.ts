@@ -4,6 +4,7 @@ export interface LobbySummary {
   playerCount: number;
   players: string[];
   totalRounds: number;
+  hasPassword: boolean;
 }
 
 export async function fetchLobbies(): Promise<LobbySummary[]> {

@@ -23,7 +23,7 @@ type GameServer = Server<ClientToServerEvents, ServerToClientEvents>;
 export function setupSocket(io: GameServer): void {
   io.on('connection', (socket) => {
     console.log(`[Connection] Client connected: ${socket.id}`);
-    socket.on('room:create', ({ username }) => {
+    socket.on('room:create', ({ username, password }) => {
       if (!username?.trim()) {
         socket.emit('room:error', { message: 'Username is required' });
         return;
@@ -35,12 +35,12 @@ export function setupSocket(io: GameServer): void {
         return;
       }
 
-      const room = createRoom(socket.id, username.trim());
+      const room = createRoom(socket.id, username.trim(), password);
       socket.join(room.code);
       broadcastRoomUpdate(io, room);
     });
 
-    socket.on('room:join', ({ code, username }) => {
+    socket.on('room:join', ({ code, username, password }) => {
       if (!username?.trim() || !code?.trim()) {
         socket.emit('room:error', { message: 'Username and room code are required' });
         return;
@@ -52,7 +52,7 @@ export function setupSocket(io: GameServer): void {
         return;
       }
 
-      const result = joinRoom(code.trim(), socket.id, username.trim());
+      const result = joinRoom(code.trim(), socket.id, username.trim(), password);
       if (result.error || !result.room) {
         socket.emit('room:error', { message: result.error || 'Failed to join' });
         return;

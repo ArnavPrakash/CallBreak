@@ -2,8 +2,8 @@ import type { Card, GameStartedPayload, MatchOverPayload, PublicGameState, RoomU
 
 // Client -> Server
 export interface ClientToServerEvents {
-  'room:create': (data: { username: string }) => void;
-  'room:join': (data: { code: string; username: string }) => void;
+  'room:create': (data: { username: string; password?: string }) => void;
+  'room:join': (data: { code: string; username: string; password?: string }) => void;
   'room:reconnect': (data: { code: string; username: string }) => void;
   'room:returnToLobby': () => void;
   'room:leave': () => void;
