@@ -17,10 +17,25 @@ import {
   getSeatIndex,
   resetRoomToLobby,
   setRoomMatchEnd,
+  getPublicLobbies,
   type Room,
 } from './roomManager';
 
 type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
+
+export function getObfuscatedHand(game: GameEngineState, seatIndex: number): Card[] {
+  if (game.phase !== 'bidding' || game.revealed[seatIndex]) {
+    return game.hands[seatIndex];
+  }
+  return Array.from({ length: game.hands[seatIndex].length }, () => ({
+    suit: 'S',
+    rank: 0,
+  }));
+}
+
+export function broadcastLobbiesUpdate(io: Server): void {
+  io.emit('lobbies:updated', getPublicLobbies());
+}
 
 export function broadcastRoomUpdate(io: Server, room: Room): void {
   io.to(room.code).emit('room:updated', {
@@ -34,6 +49,7 @@ export function broadcastRoomUpdate(io: Server, room: Room): void {
     status: room.status,
     totalRounds: room.totalRounds,
   });
+  broadcastLobbiesUpdate(io);
 }
 
 export function resyncPlayer(io: Server, socket: GameSocket, room: Room): void {
@@ -45,7 +61,7 @@ export function resyncPlayer(io: Server, socket: GameSocket, room: Room): void {
 
   const payload = {
     seatIndex,
-    hand: game.hands[seatIndex],
+    hand: getObfuscatedHand(game, seatIndex),
     dealerIndex: game.dealerIndex,
     firstBidder: game.biddingIndex,
     players: game.players,
@@ -54,7 +70,7 @@ export function resyncPlayer(io: Server, socket: GameSocket, room: Room): void {
   };
 
   socket.emit('game:resync', payload);
-  socket.emit('game:hand', { hand: game.hands[seatIndex] });
+  socket.emit('game:hand', { hand: getObfuscatedHand(game, seatIndex) });
   socket.emit('game:state', toPublicState(game));
 
   if (game.phase === 'bidding' && game.bids[seatIndex] === null && game.biddingIndex === seatIndex) {
@@ -64,7 +80,7 @@ export function resyncPlayer(io: Server, socket: GameSocket, room: Room): void {
   }
 }
 
-function emitGameState(io: Server, room: Room): void {
+export function emitGameState(io: Server, room: Room): void {
   if (!room.game) return;
   io.to(room.code).emit('game:state', toPublicState(room.game));
 }
@@ -76,7 +92,7 @@ function sendPrivateHands(io: Server, room: Room): void {
     const seatIndex = getSeatIndex(room, player.socketId);
     if (seatIndex < 0) continue;
     io.to(player.socketId).emit('game:hand', {
-      hand: room.game.hands[seatIndex],
+      hand: getObfuscatedHand(room.game, seatIndex),
     });
   }
 }
@@ -111,7 +127,7 @@ export function handleGameStart(
     const seatIndex = getSeatIndex(room, player.socketId);
     io.to(player.socketId).emit('game:started', {
       seatIndex,
-      hand: game.hands[seatIndex],
+      hand: getObfuscatedHand(game, seatIndex),
       dealerIndex: game.dealerIndex,
       firstBidder: game.biddingIndex,
       players: playerNames,
@@ -140,6 +156,10 @@ export function handleBid(io: Server, socket: GameSocket, bid: number): void {
 
   const players = room.game.players;
   console.log(`[Game] Room ${room.code} | Player ${players[seatIndex]} bid ${bid < 0 ? 'Blind ' + Math.abs(bid) : bid}`);
+
+  if (room.game.phase === 'playing') {
+    sendPrivateHands(io, room);
+  }
 
   emitGameState(io, room);
 
@@ -240,7 +260,7 @@ async function handleRoundEnd(io: Server, room: Room): Promise<void> {
     const seatIndex = getSeatIndex(room, player.socketId);
     io.to(player.socketId).emit('game:started', {
       seatIndex,
-      hand: game.hands[seatIndex],
+      hand: getObfuscatedHand(game, seatIndex),
       dealerIndex: game.dealerIndex,
       firstBidder: game.biddingIndex,
       players: game.players,

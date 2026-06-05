@@ -119,6 +119,13 @@ export function GameTable({
   }, []);
 
   const mySeat = gameStarted.seatIndex;
+  const hasRealHand = hand.length > 0 && hand.every((c) => c.rank !== 0);
+
+  useEffect(() => {
+    if (gameState?.revealed?.[mySeat] || hasRealHand) {
+      setCardsRevealed(true);
+    }
+  }, [gameState, mySeat, hasRealHand]);
   const socket = connectSocket();
   const totalRounds = gameState?.totalRounds ?? gameStarted.totalRounds ?? 5;
 
@@ -427,6 +434,7 @@ export function GameTable({
               position={seatToPosition(seatIndex, mySeat)}
               activeEmote={activeEmotes[name]?.emote}
               reactButton={reactButtonNode}
+              isRevealed={gameState?.revealed?.[seatIndex]}
             />
           );
         })}
@@ -459,8 +467,8 @@ export function GameTable({
 
         <div className={`absolute bottom-2 left-0 right-0 py-2 px-4 flex justify-center -space-x-3.5 sm:-space-x-5 md:-space-x-6 overflow-visible ${phase === 'bidding' && cardsRevealed ? 'z-[60]' : 'z-20'
           }`}>
-          {phase === 'bidding' && bids[mySeat] === null && !cardsRevealed
-            ? Array.from({ length: hand.length }).map((_, idx) => (
+          {phase === 'bidding' && !hasRealHand
+            ? Array.from({ length: hand.length || 13 }).map((_, idx) => (
               <div
                 key={`back-${idx}`}
                 className="animate-deal"
@@ -498,7 +506,10 @@ export function GameTable({
       {showBidPanel && (
         <BidPanel
           onBid={handleBidOrPreBid}
-          onReveal={() => setCardsRevealed(true)}
+          onReveal={() => {
+            socket.emit('game:reveal');
+            setCardsRevealed(true);
+          }}
           isRevealed={cardsRevealed}
           isPreBid={!isMyBidTurn}
           preBidVal={preBid}

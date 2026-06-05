@@ -1,4 +1,4 @@
-import type { RoomPlayer, RoomStatus } from '@callbreak/shared';
+import type { RoomPlayer, RoomStatus, PublicLobbySummary } from '@callbreak/shared';
 import crypto from 'crypto';
 import { normalizeTotalRounds, type GameEngineState } from '../game/engine';
 
@@ -210,14 +210,7 @@ export function resetRoomToLobby(room: Room): void {
   }
 }
 
-export interface PublicLobbySummary {
-  code: string;
-  hostUsername: string;
-  playerCount: number;
-  players: string[];
-  totalRounds: number;
-  hasPassword: boolean;
-}
+
 
 export function getPublicLobbies(): PublicLobbySummary[] {
   const list: PublicLobbySummary[] = [];

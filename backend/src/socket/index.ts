@@ -2,11 +2,13 @@ import type { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@callbreak/shared';
 import {
   broadcastRoomUpdate,
+  broadcastLobbiesUpdate,
   handleBid,
   handleGameStart,
   handlePlay,
   handleReturnToLobby,
   resyncPlayer,
+  emitGameState,
 } from './gameHandler';
 import {
   createRoom,
@@ -16,6 +18,8 @@ import {
   markPlayerDisconnected,
   reconnectRoom,
   setRoomRounds,
+  getSeatIndex,
+  getPublicLobbies,
 } from './roomManager';
 
 type GameServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -42,6 +46,7 @@ function isRateLimited(socketId: string, limit = 5, windowMs = 3000): boolean {
 export function setupSocket(io: GameServer): void {
   io.on('connection', (socket) => {
     console.log(`[Connection] Client connected: ${socket.id}`);
+    socket.emit('lobbies:updated', getPublicLobbies());
 
     socket.on('room:create', ({ username, password }) => {
       if (typeof username !== 'string' || !username.trim() || username.length > 20) {
@@ -153,6 +158,8 @@ export function setupSocket(io: GameServer): void {
       const result = leaveRoom(socket.id);
       if (result.room) {
         broadcastRoomUpdate(io, result.room);
+      } else {
+        broadcastLobbiesUpdate(io);
       }
     });
 
@@ -193,6 +200,28 @@ export function setupSocket(io: GameServer): void {
         return;
       }
       handleBid(io, socket, bid);
+    });
+
+    socket.on('game:reveal', () => {
+      const room = getRoomBySocket(socket.id);
+      if (!room?.game) {
+        socket.emit('game:error', { message: 'No active game' });
+        return;
+      }
+
+      const seatIndex = getSeatIndex(room, socket.id);
+      if (seatIndex < 0) return;
+
+      if (room.game.phase !== 'bidding') {
+        socket.emit('game:error', { message: 'Can only reveal during bidding phase' });
+        return;
+      }
+
+      room.game.revealed[seatIndex] = true;
+      // Send the real hand to this player
+      socket.emit('game:hand', { hand: room.game.hands[seatIndex] });
+      // Broadcast state to update everyone about who has revealed
+      emitGameState(io, room);
     });
 
     socket.on('game:play', ({ card }) => {
@@ -250,6 +279,8 @@ export function setupSocket(io: GameServer): void {
       if (result.room) {
         socket.leave(result.room.code);
         broadcastRoomUpdate(io, result.room);
+      } else {
+        broadcastLobbiesUpdate(io);
       }
     });
   });

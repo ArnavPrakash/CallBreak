@@ -129,7 +129,7 @@ export function BidPanel({
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-felt border-2 border-gold/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative">
-        {mode === 'select' && (
+        {mode === 'select' && !isRevealed && (
           <div className="flex flex-col items-center gap-3">
             <h3 className="text-xl font-bold text-gold text-center select-none">{titleText}</h3>
             <p className="text-xs md:text-sm text-gray-300 text-center mb-1">{descText}</p>

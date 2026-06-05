@@ -30,6 +30,11 @@ export function CardView({ card, onClick, disabled, small, played }: CardViewPro
         alt={`${card.rank} of ${card.suit}`}
         className="w-full h-full object-fill select-none rounded-md"
         draggable={false}
+        onError={() => {
+          if (card.rank !== 0 && typeof window !== 'undefined' && (window as any).preloadAllCards) {
+            (window as any).preloadAllCards();
+          }
+        }}
       />
       {disabled && (
         <div className="absolute inset-0 bg-black/40 z-10 rounded-md pointer-events-none" />

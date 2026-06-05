@@ -63,8 +63,14 @@ export function Lobby({
   useEffect(() => {
     if (!room) {
       loadLobbies();
-      const interval = setInterval(loadLobbies, 10000);
-      return () => clearInterval(interval);
+      const socket = connectSocket();
+      const handleLobbiesUpdated = (data: import('@callbreak/shared').PublicLobbySummary[]) => {
+        setLobbies(data);
+      };
+      socket.on('lobbies:updated', handleLobbiesUpdated);
+      return () => {
+        socket.off('lobbies:updated', handleLobbiesUpdated);
+      };
     }
   }, [room]);
 

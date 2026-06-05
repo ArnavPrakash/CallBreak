@@ -1,4 +1,4 @@
-import type { Card, GameStartedPayload, MatchOverPayload, PublicGameState, RoomUpdatePayload } from './types';
+import type { Card, GameStartedPayload, MatchOverPayload, PublicGameState, RoomUpdatePayload, PublicLobbySummary } from './types';
 
 // Client -> Server
 export interface ClientToServerEvents {
@@ -10,6 +10,7 @@ export interface ClientToServerEvents {
   'room:setRounds': (data: { totalRounds: number }) => void;
   'game:start': (data: { totalRounds: number }) => void;
   'game:bid': (data: { bid: number }) => void;
+  'game:reveal': () => void;
   'game:play': (data: { card: Card }) => void;
   'room:message': (data: { message: string }) => void;
   'room:emote': (data: { emote: string }) => void;
@@ -34,4 +35,5 @@ export interface ServerToClientEvents {
   'game:error': (data: { message: string }) => void;
   'room:messageReceived': (data: { username: string; message: string; timestamp: number }) => void;
   'room:emoteReceived': (data: { username: string; emote: string; timestamp: number }) => void;
+  'lobbies:updated': (lobbies: PublicLobbySummary[]) => void;
 }

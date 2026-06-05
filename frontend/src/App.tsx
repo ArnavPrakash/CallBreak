@@ -50,7 +50,6 @@ function App() {
   }, [room]);
 
   useEffect(() => {
-    // Preload all 52 card images and patterns to cache them on the client side
     const suits = ['S', 'H', 'D', 'C'] as const;
     const ranks = Array.from({ length: 13 }, (_, i) => i + 2); // 2 to 14
     const imagesToPreload: string[] = [];
@@ -66,7 +65,29 @@ function App() {
       });
     });
 
+    // Expose a global recovery method to preload all cards if a card fails to load
+    (window as any).preloadAllCards = () => {
+      imagesToPreload.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
+    };
+
     const runPreload = async () => {
+      // Check for restricted/low memory
+      const isLowMem =
+        ('deviceMemory' in navigator && (navigator as any).deviceMemory < 4) ||
+        ((window.performance as any)?.memory &&
+          (window.performance as any).memory.jsHeapSizeLimit < 1.5 * 1024 * 1024 * 1024);
+
+      if (isLowMem) {
+        addToast(
+          'Low device memory detected. Card preloading skipped to optimize performance; cards will load on-demand.',
+          'info'
+        );
+        return;
+      }
+
       try {
         // Also fetch and preload dynamic reactions list
         const res = await fetch('/api/reactions');
@@ -80,11 +101,7 @@ function App() {
         console.error('Failed to fetch reactions for preloading:', err);
       }
 
-      // Execute browser preloading asynchronously
-      imagesToPreload.forEach((src) => {
-        const img = new Image();
-        img.src = src;
-      });
+      (window as any).preloadAllCards();
     };
 
     runPreload();
@@ -392,10 +409,9 @@ function App() {
             <div
               key={t.id}
               className={`pointer-events-auto px-4 py-2.5 rounded-lg shadow-lg border text-sm font-semibold transition-all duration-300 animate-slide-up flex items-center gap-2
-                ${
-                  t.type === 'error'
-                    ? 'bg-red-950/90 text-red-200 border-red-800/40'
-                    : t.type === 'success'
+                ${t.type === 'error'
+                  ? 'bg-red-950/90 text-red-200 border-red-800/40'
+                  : t.type === 'success'
                     ? 'bg-emerald-950/90 text-emerald-200 border-emerald-800/40'
                     : 'bg-felt-dark/95 text-gold border-gold/20'
                 }`}
@@ -409,7 +425,7 @@ function App() {
         </div>
         {/* Version Tag */}
         <div className="fixed bottom-2 right-2 text-[10px] text-white/35 z-50 select-none pointer-events-none font-mono">
-          v1.2.1
+          v1.2.2
         </div>
       </>
     );
@@ -450,10 +466,9 @@ function App() {
           <div
             key={t.id}
             className={`pointer-events-auto px-4 py-2.5 rounded-lg shadow-lg border text-sm font-semibold transition-all duration-300 animate-slide-up flex items-center gap-2
-              ${
-                t.type === 'error'
-                  ? 'bg-red-950/90 text-red-200 border-red-800/40'
-                  : t.type === 'success'
+              ${t.type === 'error'
+                ? 'bg-red-950/90 text-red-200 border-red-800/40'
+                : t.type === 'success'
                   ? 'bg-emerald-950/90 text-emerald-200 border-emerald-800/40'
                   : 'bg-felt-dark/95 text-gold border-gold/20'
               }`}
@@ -467,7 +482,7 @@ function App() {
       </div>
       {/* Version Tag */}
       <div className="fixed bottom-2 right-2 text-[10px] text-white/35 z-50 select-none pointer-events-none font-mono">
-        v1.2.1
+        v1.2.2
       </div>
     </>
   );

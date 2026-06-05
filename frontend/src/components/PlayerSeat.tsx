@@ -8,6 +8,7 @@ interface PlayerSeatProps {
   position: 'bottom' | 'left' | 'top' | 'right';
   activeEmote?: string | null;
   reactButton?: React.ReactNode;
+  isRevealed?: boolean;
 }
 
 const reactionImages: Record<string, string> = {
@@ -58,6 +59,7 @@ export function PlayerSeat({
   position,
   activeEmote,
   reactButton,
+  isRevealed = false,
 }: PlayerSeatProps) {
   const positionClasses = {
     bottom: isMe 
@@ -101,6 +103,7 @@ export function PlayerSeat({
             ${!connected ? 'opacity-40' : ''}`}
         >
           {username}
+          {isRevealed && <span className="ml-1 text-[11px]" title="Revealed hand">👁️</span>}
           {isMe && <span className="text-[10px] opacity-75 font-normal ml-0.5"> (You)</span>}
           {!connected && <span className="text-[9px] text-red-400 block font-normal leading-none mt-0.5">away</span>}
         </div>

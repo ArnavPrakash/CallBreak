@@ -53,6 +53,7 @@ export interface PublicGameState {
   totalScores: number[];
   completedRounds: RoundData[];
   players: string[];
+  revealed: boolean[];
 }
 
 export interface GameStartedPayload {
@@ -70,4 +71,13 @@ export interface MatchOverPayload {
   rounds: RoundData[];
   totals: number[];
   players: string[];
+}
+
+export interface PublicLobbySummary {
+  code: string;
+  hostUsername: string;
+  playerCount: number;
+  players: string[];
+  totalRounds: number;
+  hasPassword: boolean;
 }

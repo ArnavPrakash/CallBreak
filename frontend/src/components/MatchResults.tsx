@@ -21,6 +21,7 @@ export function MatchResults({ result, onClose }: MatchResultsProps) {
     totalScores: [...result.totals],
     completedRounds: result.rounds,
     players: result.players,
+    revealed: [true, true, true, true],
   };
 
   return (

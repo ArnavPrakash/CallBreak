@@ -24,6 +24,7 @@ export interface GameEngineState {
   totalScores: number[];
   completedRounds: RoundData[];
   players: string[];
+  revealed: boolean[];
 }
 
 export function normalizeTotalRounds(n: number): number {
@@ -46,6 +47,7 @@ export function createGameEngine(
     dealerIndex,
     hands,
     bids: [null, null, null, null],
+    revealed: [false, false, false, false],
     tricksWon: [0, 0, 0, 0],
     currentTrick: [],
     trickLeader: (dealerIndex + 1) % 4,
@@ -65,12 +67,22 @@ export function submitBid(state: GameEngineState, seatIndex: number, bid: number
   const isValidBlind = bid <= -5 && bid >= -13;
   if (!isValidNormal && !isValidBlind) return false;
 
+  if (isValidBlind && state.revealed[seatIndex]) {
+    // Cannot make a blind bid if cards have already been revealed!
+    return false;
+  }
+
+  if (isValidNormal) {
+    state.revealed[seatIndex] = true;
+  }
+
   state.bids[seatIndex] = bid;
   state.biddingIndex = (state.biddingIndex + 1) % 4;
 
   if (state.bids.every((b) => b !== null)) {
     state.phase = 'playing';
     state.currentTurn = state.trickLeader;
+    state.revealed = [true, true, true, true];
   }
 
   return true;
@@ -157,6 +169,7 @@ export function startNextRound(state: GameEngineState): void {
   const deck = shuffleDeck(createDeck());
   state.hands = dealCards(deck);
   state.bids = [null, null, null, null];
+  state.revealed = [false, false, false, false];
   state.tricksWon = [0, 0, 0, 0];
   state.currentTrick = [];
   state.trickLeader = (state.dealerIndex + 1) % 4;
@@ -187,6 +200,7 @@ export function toPublicState(state: GameEngineState): PublicGameState {
     totalScores: [...state.totalScores],
     completedRounds: [...state.completedRounds],
     players: [...state.players],
+    revealed: [...state.revealed],
   };
 }
 
