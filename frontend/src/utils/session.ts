@@ -8,7 +8,7 @@ export interface GameSession {
 
 export function saveSession(code: string, username: string, sessionToken?: string): void {
   const raw = sessionStorage.getItem(SESSION_KEY);
-  let existingToken = sessionToken;
+  let existingToken = sessionToken || sessionStorage.getItem('callbreak_session_token') || undefined;
   if (!existingToken && raw) {
     try {
       existingToken = JSON.parse(raw).sessionToken;
@@ -39,4 +39,5 @@ export function loadSession(): GameSession | null {
 
 export function clearSession(): void {
   sessionStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem('callbreak_session_token');
 }

@@ -434,7 +434,6 @@ export function GameTable({
               position={seatToPosition(seatIndex, mySeat)}
               activeEmote={activeEmotes[name]?.emote}
               reactButton={reactButtonNode}
-              isRevealed={gameState?.revealed?.[seatIndex]}
             />
           );
         })}

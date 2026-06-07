@@ -224,6 +224,7 @@ function App() {
     });
 
     socket.on('room:session', ({ sessionToken }) => {
+      sessionStorage.setItem('callbreak_session_token', sessionToken);
       const session = loadSession();
       if (session) {
         saveSession(session.code, session.username, sessionToken);
